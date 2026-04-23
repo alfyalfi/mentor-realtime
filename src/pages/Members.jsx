@@ -1,4 +1,4 @@
-import { useState, useRef, memo } from 'react'
+import { useState, useRef, memo, useMemo } from 'react'
 import { Plus, Pencil, Trash2, Search, Upload } from 'lucide-react'
 import { useGroup } from '../context/AppContext'
 import { useMembers } from '../hooks'
@@ -7,14 +7,17 @@ import { enqueue } from '../services/sync'
 import { importMembersFromExcel } from '../services/importExport'
 import { Btn, Card, Modal, Input, Select, Textarea, EmptyState, SkeletonList, SectionTitle, Badge } from '../components/ui'
 import { INSTRUMENTS, MEMBER_STATUS, JABATAN } from '../utils/constants'
+import { getCustomJabatan, getCustomInstrument } from '../utils/helpers'
 
 const STATUS_COLOR = { active: 'cyan', inactive: 'gray', alumni: 'purple', on_leave: 'yellow' }
-const JABATAN_COLOR = { 'Ketua Band': 'yellow', 'Wakil Ketua': 'yellow', 'Vokalis Utama': 'cyan', 'Manager': 'purple' }
+const JABATAN_COLOR = { 'Ketua': 'yellow', 'Wakil': 'yellow', 'Humas': 'cyan' }
 
 function MemberForm({ initial, onSave, onCancel }) {
+  const jabatanList = useMemo(() => getCustomJabatan(JABATAN), [])
+  const instrumentList = useMemo(() => getCustomInstrument(INSTRUMENTS), [])
   const [form, setForm] = useState(initial || {
-    name: '', instrument: 'Vokal', jabatan: 'Anggota', angkatan: '',
-    status: 'active', joined_at: new Date().toISOString().split('T')[0], notes: ''
+    name: '', instrument: instrumentList[0] || 'Guitarist', jabatan: 'Anggota', angkatan: '',
+    status: 'active', notes: ''
   })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   return (
@@ -22,10 +25,10 @@ function MemberForm({ initial, onSave, onCancel }) {
       <Input label="Nama lengkap" placeholder="Andi Pratama" value={form.name} onChange={e => set('name', e.target.value)}/>
       <div className="grid grid-cols-2 gap-3">
         <Select label="Instrumen" value={form.instrument} onChange={e => set('instrument', e.target.value)}>
-          {INSTRUMENTS.map(i => <option key={i}>{i}</option>)}
+          {instrumentList.map(i => <option key={i}>{i}</option>)}
         </Select>
         <Select label="Jabatan" value={form.jabatan || 'Anggota'} onChange={e => set('jabatan', e.target.value)}>
-          {JABATAN.map(j => <option key={j}>{j}</option>)}
+          {jabatanList.map(j => <option key={j}>{j}</option>)}
         </Select>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -34,7 +37,6 @@ function MemberForm({ initial, onSave, onCancel }) {
         </Select>
         <Input label="Angkatan" placeholder="2023" value={form.angkatan} onChange={e => set('angkatan', e.target.value)}/>
       </div>
-      <Input label="Bergabung" type="date" value={form.joined_at} onChange={e => set('joined_at', e.target.value)}/>
       <Textarea label="Catatan" placeholder="Info tambahan..." value={form.notes} onChange={e => set('notes', e.target.value)}/>
       <div className="flex gap-2 justify-end pt-1">
         <Btn variant="outline" onClick={onCancel}>Batal</Btn>

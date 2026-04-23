@@ -13,22 +13,18 @@ export const MEMBER_STATUS = [
 ]
 
 export const JABATAN = [
-  'Ketua Band',
-  'Wakil Ketua',
-  'Vokalis Utama',
-  'Gitaris Lead',
-  'Gitaris Rhythm',
-  'Bassist',
-  'Drummer',
-  'Keyboardist',
-  'Backing Vocal',
-  'Manager',
+  'Ketua',
+  'Wakil',
+  'Sekertaris I',
+  'Sekertaris II',
+  'Bendahara I',
+  'Bendahara II',
+  'Humas',
   'Anggota',
 ]
 
 export const INSTRUMENTS = [
-  'Vokal', 'Gitar', 'Bass', 'Drum', 'Keyboard',
-  'Rhythm Guitar', 'Lead Guitar', 'Backing Vocal', 'Perkusi', 'Lainnya'
+  'Guitarist', 'Vocalist', 'Bassist', 'Drummer', 'Keyboardist',
 ]
 
 export const SKILL_VARS = [

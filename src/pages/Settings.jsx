@@ -1,12 +1,13 @@
 import { GoogleLoginCard } from '../components/ui/GoogleLoginCard'
 import { useState, useRef } from 'react'
-import { Plus, Pencil, Trash2, Download, Upload, Database, RefreshCw, FileSpreadsheet } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download, Upload, Database, RefreshCw, FileSpreadsheet, X, Music, Mic } from 'lucide-react'
 import { useGroup, useSync } from '../context/AppContext'
 import { groupsDB, membersDB } from '../services/indexeddb'
 import { enqueue } from '../services/sync'
 import { exportGroupToExcel, createBackup, restoreBackup, importMembersFromExcel } from '../services/importExport'
 import { Btn, Card, Modal, Input, Textarea, EmptyState, SectionTitle } from '../components/ui'
-import { generateId, formatDateTime } from '../utils/helpers'
+import { generateId, formatDateTime, getCustomJabatan, setCustomJabatan, getCustomInstrument, setCustomInstrument } from '../utils/helpers'
+import { JABATAN, INSTRUMENTS } from '../utils/constants'
 
 function GroupForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState(initial || { group_name: '', description: '' })
@@ -35,10 +36,40 @@ export default function Settings() {
   const fileRef  = useRef()
   const xlsxRef  = useRef()
 
+  // Custom lists
+  const [jabatanList,    setJabatanList]    = useState(() => getCustomJabatan(JABATAN))
+  const [instrumentList, setInstrumentList] = useState(() => getCustomInstrument(INSTRUMENTS))
+  const [newJabatan,     setNewJabatan]     = useState('')
+  const [newInstrument,  setNewInstrument]  = useState('')
+
   function showToast(msg, type = 'success') {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
   }
+
+  // ── Custom lists ──────────────────────────────────────────
+  function addJabatanItem() {
+    const trimmed = newJabatan.trim()
+    if (!trimmed || jabatanList.includes(trimmed)) return
+    const updated = [...jabatanList, trimmed]
+    setJabatanList(updated); setCustomJabatan(updated); setNewJabatan('')
+  }
+  function removeJabatanItem(item) {
+    const updated = jabatanList.filter(j => j !== item)
+    setJabatanList(updated); setCustomJabatan(updated)
+  }
+  function addInstrumentItem() {
+    const trimmed = newInstrument.trim()
+    if (!trimmed || instrumentList.includes(trimmed)) return
+    const updated = [...instrumentList, trimmed]
+    setInstrumentList(updated); setCustomInstrument(updated); setNewInstrument('')
+  }
+  function removeInstrumentItem(item) {
+    const updated = instrumentList.filter(i => i !== item)
+    setInstrumentList(updated); setCustomInstrument(updated)
+  }
+  function resetJabatan() { setJabatanList(JABATAN); setCustomJabatan(JABATAN) }
+  function resetInstrument() { setInstrumentList(INSTRUMENTS); setCustomInstrument(INSTRUMENTS) }
 
   // ── Group CRUD ────────────────────────────────────────────
   async function handleSaveGroup(data) {
@@ -206,6 +237,69 @@ export default function Settings() {
           </p>
         </div>
       )}
+
+      {/* Jabatan & Instrumen */}
+      <div>
+        <SectionTitle>Jabatan & Instrumen</SectionTitle>
+
+        {/* Jabatan */}
+        <div className="mb-4">
+          <p className="text-xs font-body text-m-muted mb-2 flex items-center gap-1.5">
+            <Music size={11} className="text-[var(--accent)]"/>Jabatan
+          </p>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {jabatanList.map(j => (
+              <span key={j} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-body bg-white/60 border border-m-border text-m-text">
+                {j}
+                <button onClick={() => removeJabatanItem(j)}
+                  className="text-m-muted hover:text-m-coral transition-colors ml-0.5">
+                  <X size={10}/>
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={newJabatan} onChange={e => setNewJabatan(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addJabatanItem()}
+              placeholder="Tambah jabatan baru..."
+              className="flex-1 bg-white border border-m-border rounded-xl px-3 py-2 text-sm text-m-text font-body placeholder-m-muted focus:outline-none focus:border-[var(--accent)] transition-all"/>
+            <Btn size="sm" onClick={addJabatanItem} disabled={!newJabatan.trim()}><Plus size={13}/>Tambah</Btn>
+          </div>
+          <button onClick={resetJabatan} className="mt-1.5 text-[10px] font-body text-m-muted hover:text-m-coral transition-colors">
+            Reset ke default
+          </button>
+        </div>
+
+        {/* Instrumen */}
+        <div>
+          <p className="text-xs font-body text-m-muted mb-2 flex items-center gap-1.5">
+            <Mic size={11} className="text-[var(--accent)]"/>Instrumen
+          </p>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {instrumentList.map(i => (
+              <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-body bg-white/60 border border-m-border text-m-text">
+                {i}
+                <button onClick={() => removeInstrumentItem(i)}
+                  className="text-m-muted hover:text-m-coral transition-colors ml-0.5">
+                  <X size={10}/>
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={newInstrument} onChange={e => setNewInstrument(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addInstrumentItem()}
+              placeholder="Tambah instrumen baru..."
+              className="flex-1 bg-white border border-m-border rounded-xl px-3 py-2 text-sm text-m-text font-body placeholder-m-muted focus:outline-none focus:border-[var(--accent)] transition-all"/>
+            <Btn size="sm" onClick={addInstrumentItem} disabled={!newInstrument.trim()}><Plus size={13}/>Tambah</Btn>
+          </div>
+          <button onClick={resetInstrument} className="mt-1.5 text-[10px] font-body text-m-muted hover:text-m-coral transition-colors">
+            Reset ke default
+          </button>
+        </div>
+      </div>
 
       {/* Group modals */}
       <Modal open={!!groupModal} onClose={() => setGroupModal(null)}

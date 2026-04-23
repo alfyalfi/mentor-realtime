@@ -1,3 +1,19 @@
+const CJ_KEY = 'mentor_custom_jabatan'
+const CI_KEY = 'mentor_custom_instrument'
+
+export function getCustomJabatan(defaults) {
+  try { const v = localStorage.getItem(CJ_KEY); return v ? JSON.parse(v) : defaults } catch { return defaults }
+}
+export function setCustomJabatan(list) {
+  localStorage.setItem(CJ_KEY, JSON.stringify(list))
+}
+export function getCustomInstrument(defaults) {
+  try { const v = localStorage.getItem(CI_KEY); return v ? JSON.parse(v) : defaults } catch { return defaults }
+}
+export function setCustomInstrument(list) {
+  localStorage.setItem(CI_KEY, JSON.stringify(list))
+}
+
 export function generateId(prefix) {
   const ts  = Date.now().toString(36).toUpperCase()
   const rnd = Math.random().toString(36).slice(2,6).toUpperCase()

@@ -109,10 +109,11 @@ function ExportModal({ open, onClose, activeTab, groupName, exportRefs }) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
          onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm"/>
-      <div className="relative w-full max-w-lg card-glass rounded-t-2xl sm:rounded-2xl animate-slide-up border border-[var(--accent)]/20">
+      <div className="relative w-full max-w-lg card-glass rounded-t-2xl sm:rounded-2xl animate-slide-up border border-[var(--accent)]/20 flex flex-col"
+        style={{ maxHeight: 'min(88vh, 100dvh - 2rem)' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-m-border">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-m-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <Camera size={15} className="text-[var(--accent)]" style={{ filter: 'drop-shadow(0 0 6px #00e5ff)' }}/>
             <h2 className="font-display text-xs tracking-widest text-[var(--accent)] uppercase">Export PNG</h2>
@@ -122,8 +123,8 @@ function ExportModal({ open, onClose, activeTab, groupName, exportRefs }) {
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-5 space-y-4">
+        {/* Body — scrollable */}
+        <div className="p-5 space-y-4 overflow-y-auto overscroll-contain flex-1 pb-8">
           <p className="text-xs font-body text-m-sub">
             Pilih konten yang ingin diekspor sebagai gambar PNG bersih:
           </p>
@@ -224,6 +225,7 @@ function ExportSection({ exportRef, children, title, subtitle }) {
 function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
   const [filterInstrument, setFilterInstrument] = useState('all')
   const [filterJabatan,    setFilterJabatan]    = useState('all')
+  const [filterAngkatan,   setFilterAngkatan]   = useState('all')
   const [filterPeriod,     setFilterPeriod]     = useState('all')
   const [chartData,        setChartData]        = useState([])
   const [rankData,         setRankData]         = useState([])
@@ -233,9 +235,10 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
   const filteredMembers = useMemo(() => members.filter(m => {
     if (m.status !== 'active') return false
     if (filterInstrument !== 'all' && m.instrument !== filterInstrument) return false
-    if (filterJabatan !== 'all' && m.jabatan !== filterJabatan) return false
+    if (filterJabatan    !== 'all' && m.jabatan    !== filterJabatan)    return false
+    if (filterAngkatan   !== 'all' && m.angkatan   !== filterAngkatan)   return false
     return true
-  }), [members, filterInstrument, filterJabatan])
+  }), [members, filterInstrument, filterJabatan, filterAngkatan])
 
   const memberIds = useMemo(() => new Set(filteredMembers.map(m => m.member_id)), [filteredMembers])
 
@@ -303,10 +306,12 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
   const rankLabels = { hadir: '% Hadir', izin: '% Izin', sakit: '% Sakit', alpha: '% Alpha' }
   const instrumentOpts = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.instrument).filter(Boolean))]
   const jabatanOpts    = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.jabatan).filter(Boolean))]
+  const angkatanOpts   = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.angkatan).filter(Boolean)).keys()].filter(Boolean)
 
   const filterLabel = [
     filterInstrument !== 'all' && filterInstrument,
     filterJabatan    !== 'all' && filterJabatan,
+    filterAngkatan   !== 'all' && `Angkatan ${filterAngkatan}`,
     filterPeriod === 'last5' && '5 Sesi' ,
     filterPeriod === 'last10' && '10 Sesi',
   ].filter(Boolean).join(' · ')
@@ -320,7 +325,7 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
           <Filter size={12} className="text-[var(--accent)]"/>
           <span className="text-[10px] font-body text-[var(--accent)] uppercase tracking-wider">Filter</span>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Instrumen</p>
             <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)}
@@ -336,6 +341,14 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
             </select>
           </div>
           <div>
+            <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Angkatan</p>
+            <select value={filterAngkatan} onChange={e => setFilterAngkatan(e.target.value)}
+              className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
+              <option value="all">Semua</option>
+              {angkatanOpts.map(o => <option key={o} value={o}>Angkatan {o}</option>)}
+            </select>
+          </div>
+          <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Periode</p>
             <select value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)}
               className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
@@ -345,11 +358,12 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
             </select>
           </div>
         </div>
-        {(filterInstrument !== 'all' || filterJabatan !== 'all') && (
+        {(filterInstrument !== 'all' || filterJabatan !== 'all' || filterAngkatan !== 'all') && (
           <p className="text-[10px] font-body text-[var(--accent)] mt-1">
             Menampilkan {filteredMembers.length} anggota
             {filterInstrument !== 'all' && ` · ${filterInstrument}`}
             {filterJabatan !== 'all' && ` · ${filterJabatan}`}
+            {filterAngkatan !== 'all' && ` · Angkatan ${filterAngkatan}`}
           </p>
         )}
       </div>
@@ -538,15 +552,17 @@ function StatsRanking({ members, group_id, exportRefs }) {
   const [filterSkill,      setFilterSkill]      = useState('loyalitas')
   const [filterInstrument, setFilterInstrument] = useState('all')
   const [filterJabatan,    setFilterJabatan]    = useState('all')
+  const [filterAngkatan,   setFilterAngkatan]   = useState('all')
   const [rankData,         setRankData]         = useState([])
   const [loading,          setLoading]          = useState(true)
 
   const filteredMembers = useMemo(() => members.filter(m => {
     if (m.status !== 'active') return false
     if (filterInstrument !== 'all' && m.instrument !== filterInstrument) return false
-    if (filterJabatan !== 'all' && m.jabatan !== filterJabatan) return false
+    if (filterJabatan    !== 'all' && m.jabatan    !== filterJabatan)    return false
+    if (filterAngkatan   !== 'all' && m.angkatan   !== filterAngkatan)   return false
     return true
-  }), [members, filterInstrument, filterJabatan])
+  }), [members, filterInstrument, filterJabatan, filterAngkatan])
 
   useEffect(() => {
     if (!group_id || filteredMembers.length === 0) { setRankData([]); setLoading(false); return }
@@ -568,7 +584,8 @@ function StatsRanking({ members, group_id, exportRefs }) {
   const skillColor = skillVar?.color ?? '#00e5ff'
   const instrumentOpts = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.instrument).filter(Boolean))]
   const jabatanOpts    = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.jabatan).filter(Boolean))]
-  const filterLabel = [filterInstrument !== 'all' && filterInstrument, filterJabatan !== 'all' && filterJabatan].filter(Boolean).join(' · ')
+  const angkatanOpts   = [...new Set(members.filter(m=>m.status==='active').map(m=>m.angkatan).filter(Boolean))]
+  const filterLabel = [filterInstrument !== 'all' && filterInstrument, filterJabatan !== 'all' && filterJabatan, filterAngkatan !== 'all' && `Angkatan ${filterAngkatan}`].filter(Boolean).join(' · ')
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -589,7 +606,7 @@ function StatsRanking({ members, group_id, exportRefs }) {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Instrumen</p>
             <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)}
@@ -602,6 +619,14 @@ function StatsRanking({ members, group_id, exportRefs }) {
             <select value={filterJabatan} onChange={e => setFilterJabatan(e.target.value)}
               className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
               {jabatanOpts.map(o => <option key={o} value={o}>{o === 'all' ? 'Semua' : o}</option>)}
+            </select>
+          </div>
+          <div>
+            <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Angkatan</p>
+            <select value={filterAngkatan} onChange={e => setFilterAngkatan(e.target.value)}
+              className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
+              <option value="all">Semua</option>
+              {angkatanOpts.map(o => <option key={o} value={o}>Angkatan {o}</option>)}
             </select>
           </div>
         </div>

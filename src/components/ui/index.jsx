@@ -47,14 +47,15 @@ export function Modal({ open, onClose, title, children, width = 'max-w-lg' }) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"/>
-      <div className={`relative w-full ${width} bg-white rounded-t-2xl sm:rounded-2xl animate-slide-up max-h-[92vh] overflow-y-auto shadow-card-lift border border-white`}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-m-border sticky top-0 bg-white/95 backdrop-blur-sm z-10">
+      <div className={`relative w-full ${width} bg-white rounded-t-2xl sm:rounded-2xl animate-slide-up shadow-card-lift border border-white flex flex-col`}
+        style={{ maxHeight: 'min(88vh, 100dvh - 2rem)' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-m-border flex-shrink-0 bg-white/95 backdrop-blur-sm rounded-t-2xl sm:rounded-t-2xl z-10">
           <h2 className="font-display text-xs font-semibold tracking-widest uppercase neon-text">{title}</h2>
           <button onClick={onClose} className="text-m-muted hover:text-m-text p-1 rounded-lg hover:bg-slate-100 transition-colors">
             <X size={16}/>
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-y-auto overscroll-contain flex-1 pb-8">{children}</div>
       </div>
     </div>
   )
