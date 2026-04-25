@@ -1,79 +1,52 @@
-// Google OAuth2 menggunakan Google Identity Services (GIS)
-// Tidak butuh backend — token langsung di browser
+/**
+ * auth.js  —  Supabase Auth + Google OAuth
+ *
+ * Menggantikan Google Identity Services (GIS) lama.
+ * Supabase menangani token, refresh, dan session secara otomatis.
+ */
+import { supabase } from './supabase'
 
-const CLIENT_ID  = import.meta.env.VITE_OAUTH_CLIENT_ID || ''
-const SCOPES     = 'https://www.googleapis.com/auth/spreadsheets'
-const TOKEN_KEY  = 'beat_oauth_token'
-const EXPIRY_KEY = 'beat_oauth_expiry'
-const USER_KEY   = 'beat_oauth_user'
-
-let tokenClient = null
-
-// Load GIS script sekali saja
-function loadGIS() {
-  return new Promise((resolve, reject) => {
-    if (window.google?.accounts?.oauth2) { resolve(); return }
-    const existing = document.getElementById('gis-script')
-    if (existing) { existing.addEventListener('load', resolve); return }
-    const script = document.createElement('script')
-    script.id  = 'gis-script'
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.onload  = resolve
-    script.onerror = () => reject(new Error('Gagal memuat Google Sign-In'))
-    document.head.appendChild(script)
+// ── Sign in dengan Google ─────────────────────────────────────
+export async function loginWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      // Kembali ke halaman yang sama setelah OAuth callback
+      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
+      scopes: 'email profile',
+    },
   })
+  if (error) throw new Error(error.message)
 }
 
-// Minta access token dari Google
-export async function requestToken() {
-  if (!CLIENT_ID) throw new Error('VITE_OAUTH_CLIENT_ID belum diisi di .env')
-  await loadGIS()
-  return new Promise((resolve, reject) => {
-    tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope:     SCOPES,
-      callback:  (response) => {
-        if (response.error) { reject(new Error(response.error)); return }
-        const expiry = Date.now() + (response.expires_in - 60) * 1000
-        localStorage.setItem(TOKEN_KEY,  response.access_token)
-        localStorage.setItem(EXPIRY_KEY, String(expiry))
-        resolve(response.access_token)
-      },
-    })
-    tokenClient.requestAccessToken({ prompt: 'consent' })
+// ── Logout ────────────────────────────────────────────────────
+export async function logout() {
+  const { error } = await supabase.auth.signOut()
+  if (error) throw new Error(error.message)
+}
+
+// ── Ambil session saat ini (sync) ─────────────────────────────
+export function getSession() {
+  // Supabase simpan session di localStorage otomatis
+  // Gunakan getSession() untuk cek awal
+  return supabase.auth.getSession()
+}
+
+// ── Ambil user saat ini ───────────────────────────────────────
+export async function getUser() {
+  const { data } = await supabase.auth.getUser()
+  return data?.user ?? null
+}
+
+// ── Dengar perubahan auth state ───────────────────────────────
+export function onAuthStateChange(callback) {
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    callback(event, session)
   })
+  return data.subscription.unsubscribe  // return unsubscribe fn
 }
 
-// Ambil token yang masih valid
-export function getToken() {
-  const token  = localStorage.getItem(TOKEN_KEY)
-  const expiry = Number(localStorage.getItem(EXPIRY_KEY) || 0)
-  if (!token || Date.now() > expiry) return null
-  return token
-}
-
-// Simpan info user (dari Google People API atau decode token)
-export function saveUser(user) {
-  localStorage.setItem(USER_KEY, JSON.stringify(user))
-}
-export function getUser() {
-  try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null') }
-  catch { return null }
-}
-
-export function logout() {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(EXPIRY_KEY)
-  localStorage.removeItem(USER_KEY)
-  if (window.google?.accounts?.oauth2) {
-    window.google.accounts.oauth2.revoke(localStorage.getItem(TOKEN_KEY) || '', () => {})
-  }
-}
-
-export function isLoggedIn() {
-  return !!getToken()
-}
-
-export const isConfigured = () => !!CLIENT_ID
+export const isConfigured = () => !!(
+  import.meta.env.VITE_SUPABASE_URL &&
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+)

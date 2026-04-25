@@ -1,12 +1,22 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+/**
+ * AppContext.jsx  —  Group + Sync Context
+ *
+ * SyncProvider sekarang:
+ *   - Subscribe Supabase Realtime
+ *   - Expose `lastUpdate` → halaman pakai useEffect([lastUpdate]) untuk refresh
+ *   - Flush queue saat online
+ */
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { groupsDB, syncQueueDB } from '../services/indexeddb'
-import { initSync, runSync } from '../services/sync'
+import { initSync, runSync, subscribeRealtime } from '../services/sync'
+import { useAuth } from './AuthContext'
 
-// ── Theme helper — detect accent color from group name ────────
+// ─────────────────────────────────────────────────────────────
+// Theme helper
+// ─────────────────────────────────────────────────────────────
 function getGroupTheme(group) {
   if (!group) return 'cyan'
   const name = (group.group_name || '').toLowerCase()
-  // Yellow keywords
   const yellowKeys = ['pixie', 'yellow', 'gold', 'sunny', 'warm', 'amber']
   if (yellowKeys.some(k => name.includes(k))) return 'yellow'
   return 'cyan'
@@ -20,14 +30,16 @@ function applyTheme(theme) {
   }
 }
 
-// ── Group Context ──────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Group Context
+// ─────────────────────────────────────────────────────────────
 const GroupCtx = createContext(null)
 
 export function GroupProvider({ children }) {
-  const [groups,      setGroups]      = useState([])
+  const [groups,      setGroups]           = useState([])
   const [activeGroup, setActiveGroupState] = useState(null)
-  const [loading,     setLoading]     = useState(true)
-  const [theme,       setTheme]       = useState('cyan')
+  const [loading,     setLoading]          = useState(true)
+  const [theme,       setTheme]            = useState('cyan')
 
   const loadGroups = useCallback(async () => {
     const gs = await groupsDB.getAll()
@@ -42,6 +54,15 @@ export function GroupProvider({ children }) {
   }, [])
 
   useEffect(() => { loadGroups() }, [loadGroups])
+
+  // Refresh groups saat ada perubahan dari Realtime
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.table === 'groups') loadGroups()
+    }
+    window.addEventListener('mentordb:updated', handler)
+    return () => window.removeEventListener('mentordb:updated', handler)
+  }, [loadGroups])
 
   const setActiveGroup = useCallback((g) => {
     setActiveGroupState(g)
@@ -69,15 +90,23 @@ export function GroupProvider({ children }) {
 
 export const useGroup = () => useContext(GroupCtx)
 
-// ── Sync Context ───────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Sync Context
+// ─────────────────────────────────────────────────────────────
 const SyncCtx = createContext(null)
 
 export function SyncProvider({ children }) {
+  const { loggedIn }       = useAuth()
   const [isOnline,     setIsOnline]     = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
   const [isSyncing,    setIsSyncing]    = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState(null)
+  // lastUpdate: timestamp diincrement tiap ada perubahan Realtime
+  // Halaman subscribe ke nilai ini untuk auto-refresh
+  const [lastUpdate, setLastUpdate] = useState(0)
+  const unsubRef = useRef(null)
 
+  // ── Init sync listeners (sekali) ───────────────────────────
   useEffect(() => {
     initSync()
     const onOnline  = () => setIsOnline(true)
@@ -90,14 +119,32 @@ export function SyncProvider({ children }) {
     }
   }, [])
 
+  // ── Subscribe Realtime saat user login ─────────────────────
+  useEffect(() => {
+    if (!loggedIn) {
+      unsubRef.current?.()
+      return
+    }
+
+    unsubRef.current = subscribeRealtime((table, eventType) => {
+      console.log(`[realtime] ${table} ${eventType}`)
+      // Bump lastUpdate → halaman yang listen akan re-fetch dari IndexedDB
+      setLastUpdate(prev => prev + 1)
+    })
+
+    return () => unsubRef.current?.()
+  }, [loggedIn])
+
+  // ── Poll pending count ──────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(async () => {
       const c = await syncQueueDB.countPending()
       setPendingCount(c)
-    }, 5000)
+    }, 5_000)
     return () => clearInterval(interval)
   }, [])
 
+  // ── Manual sync now ─────────────────────────────────────────
   const syncNow = useCallback(async () => {
     setIsSyncing(true)
     await runSync()
@@ -108,7 +155,14 @@ export function SyncProvider({ children }) {
   }, [])
 
   return (
-    <SyncCtx.Provider value={{ isOnline, pendingCount, isSyncing, syncNow, lastSyncedAt }}>
+    <SyncCtx.Provider value={{
+      isOnline,
+      pendingCount,
+      isSyncing,
+      syncNow,
+      lastSyncedAt,
+      lastUpdate,   // ← baru: halaman subscribe ini untuk auto-refresh
+    }}>
       {children}
     </SyncCtx.Provider>
   )

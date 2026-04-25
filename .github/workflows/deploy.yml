@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to Netlify
 
 on:
   push:
@@ -7,29 +7,28 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '20'
+          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install
+        run: npm ci
 
       - name: Build
-        run: npm run build
         env:
-          VITE_SHEETS_API_KEY:  ${{ secrets.VITE_SHEETS_API_KEY }}
-          VITE_SPREADSHEET_ID:  ${{ secrets.VITE_SPREADSHEET_ID }}
-          VITE_OAUTH_CLIENT_ID: ${{ secrets.VITE_OAUTH_CLIENT_ID }}
+          VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Deploy to Netlify
+        uses: netlify/actions/cli@master
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          args: deploy --prod --dir=dist
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID:    ${{ secrets.NETLIFY_SITE_ID }}

@@ -4,6 +4,22 @@ import { enqueue } from '../services/sync'
 import { generateId, attendanceId, statId } from '../utils/helpers'
 import { DEFAULT_SCORES } from '../utils/constants'
 
+// ── Helper: auto-reload hook saat ada perubahan Realtime ───
+// Dipanggil sekali di setiap hook, dengan fungsi load() dan
+// nama tabel yang relevan untuk hook tersebut.
+function useRealtimeReload(load, tables) {
+  useEffect(() => {
+    function handleUpdate(e) {
+      // Hanya reload kalau tabel yang berubah relevan dengan hook ini
+      if (!tables || tables.includes(e.detail?.table)) {
+        load()
+      }
+    }
+    window.addEventListener('mentordb:updated', handleUpdate)
+    return () => window.removeEventListener('mentordb:updated', handleUpdate)
+  }, [load, tables])
+}
+
 // ── useMembers ─────────────────────────────────────────────
 export function useMembers(group_id) {
   const [members, setMembers] = useState([])
@@ -19,6 +35,7 @@ export function useMembers(group_id) {
   }, [group_id])
 
   useEffect(() => { load() }, [load])
+  useRealtimeReload(load, ['members'])  // ← reload otomatis saat ada perubahan anggota
 
   const saveMember = useCallback(async (data) => {
     const now = new Date().toISOString()
@@ -58,6 +75,7 @@ export function useSessions(group_id) {
   }, [group_id])
 
   useEffect(() => { load() }, [load])
+  useRealtimeReload(load, ['sessions'])  // ← reload otomatis saat ada perubahan sesi
 
   const saveSession = useCallback(async (data) => {
     const now = new Date().toISOString()
@@ -123,6 +141,7 @@ export function useAttendance(session_id, group_id) {
   }, [session_id, group_id])
 
   useEffect(() => { load() }, [load])
+  useRealtimeReload(load, ['attendance'])  // ← reload otomatis saat ada perubahan absensi
 
   // Initialize draft for all active members (all default = hadir)
   const initDraft = useCallback(async (members) => {
@@ -179,6 +198,7 @@ export function useStats(member_id, group_id) {
   }, [member_id, group_id])
 
   useEffect(() => { load() }, [load])
+  useRealtimeReload(load, ['stats_history'])  // ← reload otomatis saat ada perubahan stats
 
   const initScores = useCallback(async (session_id) => {
     const existing = await statsDB.getBySession(session_id, member_id)

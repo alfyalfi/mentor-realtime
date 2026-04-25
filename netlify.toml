@@ -1,0 +1,34 @@
+[build]
+  command   = "npm run build"
+  publish   = "dist"
+
+# SPA fallback — semua route diarahkan ke index.html
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+# Header keamanan + PWA support
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options        = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+
+# Service Worker harus tanpa cache
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/registerSW.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Manifest PWA
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"

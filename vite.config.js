@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: '/beat-app/',
+  base: '/',
+
   plugins: [
     react(),
     VitePWA({
@@ -17,8 +18,8 @@ export default defineConfig({
         background_color: '#050508',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/beat-app/',
-        scope: '/beat-app/',
+        start_url: '/',
+        scope: '/',
         lang: 'id',
         categories: ['productivity', 'utilities'],
         icons: [
@@ -26,36 +27,48 @@ export default defineConfig({
             src: 'icons/icon-192.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any'
+            purpose: 'any',
           },
           {
             src: 'icons/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ]
+            purpose: 'any maskable',
+          },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: 'index.html',
         runtimeCaching: [
+          // Cache Supabase REST API — NetworkFirst (data segar, fallback ke cache)
           {
-            urlPattern: /^https:\/\/sheets\.googleapis\.com/,
+            urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\//,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'sheets-api',
-              networkTimeoutSeconds: 10,
-              cacheableResponse: { statuses: [0, 200] }
-            }
+              cacheName: 'supabase-rest',
+              networkTimeoutSeconds: 8,
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
+          // Supabase Auth endpoint
+          {
+            urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/auth\//,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-auth',
+              networkTimeoutSeconds: 8,
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Google Fonts (opsional, jika dipakai)
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com/,
             handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts' }
-          }
-        ]
-      }
-    })
-  ]
+            options: { cacheName: 'google-fonts' },
+          },
+        ],
+      },
+    }),
+  ],
 })

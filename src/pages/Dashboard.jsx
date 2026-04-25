@@ -46,6 +46,35 @@ export default function Dashboard() {
       })
   }, [activeGroup])
 
+  // ← Auto-refresh dashboard saat ada perubahan Realtime dari device lain
+  useEffect(() => {
+    function handleUpdate() {
+      if (!activeGroup) return
+      const gid = activeGroup.group_id
+      Promise.all([membersDB.getByGroup(gid), sessionsDB.getByGroup(gid)])
+        .then(async ([members, sessions]) => {
+          const lastSession = sessions[0]
+          let attendanceSummary = null
+          if (lastSession) {
+            const att = await attendanceDB.getBySession(lastSession.session_id, gid)
+            const counts = {}
+            ATTENDANCE_STATUS.forEach(s => { counts[s.key] = 0 })
+            att.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++ })
+            attendanceSummary = { session: lastSession, counts, total: att.length }
+          }
+          setStats({
+            totalMembers:  members.length,
+            activeMembers: members.filter(m => m.status === 'active').length,
+            totalSessions: sessions.length,
+            lastAttendance: attendanceSummary,
+          })
+          setRecent(sessions.slice(0, 4))
+        })
+    }
+    window.addEventListener('mentordb:updated', handleUpdate)
+    return () => window.removeEventListener('mentordb:updated', handleUpdate)
+  }, [activeGroup])
+
   if (!activeGroup) return (
     <div className="px-4 pt-16 pb-24 max-w-2xl mx-auto text-center animate-fade-in">
       <p className="text-4xl mb-4 opacity-30">🎵</p>
