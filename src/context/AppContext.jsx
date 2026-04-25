@@ -96,7 +96,7 @@ export const useGroup = () => useContext(GroupCtx)
 const SyncCtx = createContext(null)
 
 export function SyncProvider({ children }) {
-  const { loggedIn }       = useAuth()
+  const { loggedIn } = useAuth() || {}
   const [isOnline,     setIsOnline]     = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
   const [isSyncing,    setIsSyncing]    = useState(false)
