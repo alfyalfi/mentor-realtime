@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSync } from '../../context/AppContext'
-import { pushAllToSheets, pullFromSheets } from '../../services/sync'
+import { pushAllToSupabase, pullFromSupabase } from '../../services/sync'
 import {
   LogIn, LogOut, RefreshCw, CheckCircle,
   AlertCircle, Cloud, Upload, Download
@@ -20,11 +20,11 @@ export function GoogleLoginCard({ onPullDone }) {
     setPushState('running')
     setPushError(null)
     try {
-      await pushAllToSheets(({ table, done, total }) => {
+      await pushAllToSupabase(({ table, done, total }) => {
         setProgress(table === 'selesai' ? 'Selesai!' : `Mengirim ${table}... (${done+1}/${total})`)
       })
       setPushState('done')
-      setProgress('Semua data berhasil dikirim ke Sheets!')
+      setProgress('Semua data berhasil dikirim ke Supabase!')
     } catch (e) {
       setPushState('error')
       setPushError(e.message)
@@ -35,11 +35,11 @@ export function GoogleLoginCard({ onPullDone }) {
     setPullState('running')
     setPushError(null)
     try {
-      await pullFromSheets(({ table, done, total }) => {
+      await pullFromSupabase(({ table, done, total }) => {
         setProgress(table === 'selesai' ? 'Selesai!' : `Mengambil ${table}... (${done+1}/${total})`)
       })
       setPullState('done')
-      setProgress('Data dari Sheets berhasil dimuat!')
+      setProgress('Data dari Supabase berhasil dimuat!')
       onPullDone?.()
     } catch (e) {
       setPullState('error')
