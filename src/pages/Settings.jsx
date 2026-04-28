@@ -1,12 +1,12 @@
 import { GoogleLoginCard } from '../components/ui/GoogleLoginCard'
 import { useState, useRef } from 'react'
-import { Plus, Pencil, Trash2, Download, Upload, Database, RefreshCw, FileSpreadsheet, X, Music, Mic } from 'lucide-react'
-import { useGroup, useSync } from '../context/AppContext'
+import { Plus, Pencil, Trash2, Download, Upload, Database, FileSpreadsheet, X, Music, Mic } from 'lucide-react'
+import { useGroup } from '../context/AppContext'
 import { groupsDB, membersDB } from '../services/indexeddb'
 import { enqueue } from '../services/sync'
 import { exportGroupToExcel, createBackup, restoreBackup, importMembersFromExcel } from '../services/importExport'
 import { Btn, Card, Modal, Input, Textarea, EmptyState, SectionTitle } from '../components/ui'
-import { generateId, formatDateTime, getCustomJabatan, setCustomJabatan, getCustomInstrument, setCustomInstrument } from '../utils/helpers'
+import { generateId, getCustomJabatan, setCustomJabatan, getCustomInstrument, setCustomInstrument } from '../utils/helpers'
 import { JABATAN, INSTRUMENTS } from '../utils/constants'
 
 function GroupForm({ initial, onSave, onCancel }) {
@@ -27,7 +27,6 @@ function GroupForm({ initial, onSave, onCancel }) {
 
 export default function Settings() {
   const { groups, activeGroup, refreshGroups, setActiveGroup } = useGroup()
-  const { isOnline, pendingCount, isSyncing, syncNow } = useSync()
 
   const [groupModal,  setGroupModal]  = useState(null)
   const [delGroup,    setDelGroup]    = useState(null)
@@ -154,7 +153,7 @@ export default function Settings() {
         </div>
       )}
 
-      {/* Google Sheets sync + login */}
+      {/* Supabase sync + login */}
       <GoogleLoginCard onPullDone={refreshGroups}/>
 
       {/* Groups management */}

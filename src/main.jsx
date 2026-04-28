@@ -9,13 +9,13 @@ import './index.css'
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <SyncProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <SyncProvider>
           <GroupProvider>
             <App/>
           </GroupProvider>
-        </AuthProvider>
-      </SyncProvider>
+        </SyncProvider>
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 )

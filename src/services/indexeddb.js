@@ -11,6 +11,15 @@ db.version(1).stores({
   sync_queue:    'queue_id, status, created_at',
 })
 
+db.version(2).stores({
+  groups:        'group_id, is_active, updated_at',
+  members:       'member_id, group_id, status, [group_id+status], name, updated_at',
+  sessions:      'session_id, group_id, session_date, status, [group_id+session_date], updated_at',
+  attendance:    'attendance_id, group_id, session_id, member_id, [session_id+group_id], [member_id+group_id]',
+  stats_history: 'stat_id, group_id, member_id, session_id, session_date, [member_id+group_id], [session_id+member_id], [group_id+session_date]',
+  sync_queue:    'queue_id, status, created_at, [status+created_at], [table+record_id], group_id',
+})
+
 // ── Groups ──────────────────────────────────────────────
 export const groupsDB = {
   getAll: () => db.groups.toArray(),
@@ -24,8 +33,7 @@ export const membersDB = {
   getByGroup: (gid) =>
     db.members.where('group_id').equals(gid).toArray(),
   getActiveByGroup: (gid) =>
-    db.members.where('group_id').equals(gid)
-      .filter(m => m.status === 'active').toArray(),
+    db.members.where('[group_id+status]').equals([gid, 'active']).toArray(),
   get: (id) => db.members.get(id),
   put: (m)  => db.members.put(m),
   delete: (id) => db.members.delete(id),
@@ -46,13 +54,11 @@ export const sessionsDB = {
 export const attendanceDB = {
   getBySession: (sid, gid) =>
     db.attendance
-      .where('session_id').equals(sid)
-      .filter(a => a.group_id === gid)
+      .where('[session_id+group_id]').equals([sid, gid])
       .toArray(),
   getByMember: (mid, gid) =>
     db.attendance
-      .where('member_id').equals(mid)
-      .filter(a => a.group_id === gid)
+      .where('[member_id+group_id]').equals([mid, gid])
       .toArray(),
   put: (a)  => db.attendance.put(a),
   bulkPut: (arr) => db.attendance.bulkPut(arr),
@@ -63,14 +69,12 @@ export const attendanceDB = {
 export const statsDB = {
   getByMember: (mid, gid) =>
     db.stats_history
-      .where('member_id').equals(mid)
-      .filter(s => s.group_id === gid)
+      .where('[member_id+group_id]').equals([mid, gid])
       .toArray()
       .then(rows => rows.sort((a,b) => a.session_date.localeCompare(b.session_date))),
   getLatest: async (mid, gid) => {
     const rows = await db.stats_history
-      .where('member_id').equals(mid)
-      .filter(s => s.group_id === gid)
+      .where('[member_id+group_id]').equals([mid, gid])
       .toArray()
     rows.sort((a,b) => b.session_date.localeCompare(a.session_date))
     return rows[0] ?? null
@@ -95,6 +99,14 @@ export const syncQueueDB = {
       ),
   add: (item) => db.sync_queue.add(item),
   update: (id, changes) => db.sync_queue.update(id, changes),
+  findPendingForRecord: (table, record_id) =>
+    db.sync_queue
+      .where('[table+record_id]').equals([table, record_id])
+      .filter(r => ['pending', 'failed'].includes(r.status))
+      .first(),
   countPending: () =>
-    db.sync_queue.where('status').anyOf(['pending']).count(),
+    db.sync_queue
+      .where('status').anyOf(['pending','failed'])
+      .filter(r => (r.retries ?? 0) < 3)
+      .count(),
 }

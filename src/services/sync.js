@@ -48,6 +48,8 @@ async function syncToSupabase(op, table, payload) {
 // PUBLIC: Enqueue mutasi (dipanggil dari seluruh aplikasi)
 // ─────────────────────────────────────────────────────────────
 export async function enqueue(op, table, payload) {
+  const record_id = payload[PK_MAP[table]]
+
   // Optimistic: coba kirim langsung dulu
   if (navigator.onLine && isConfigured()) {
     try {
@@ -59,18 +61,31 @@ export async function enqueue(op, table, payload) {
   }
 
   // Offline / gagal → simpan ke queue
-  await syncQueueDB.add({
+  const queued = {
     queue_id:   generateId('Q'),
     op,
     table,
-    record_id:  payload[PK_MAP[table]],
+    record_id,
     group_id:   payload.group_id ?? null,
     payload,
     status:     'pending',
     retries:    0,
     created_at: new Date().toISOString(),
     synced_at:  null,
-  })
+    last_error: null,
+  }
+
+  const existing = await syncQueueDB.findPendingForRecord(table, record_id)
+  if (existing) {
+    await syncQueueDB.update(existing.queue_id, {
+      ...queued,
+      queue_id: existing.queue_id,
+      created_at: existing.created_at,
+    })
+    return
+  }
+
+  await syncQueueDB.add(queued)
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -94,6 +109,7 @@ export async function runSync() {
         await syncQueueDB.update(item.queue_id, {
           status:  retries >= 3 ? 'failed' : 'pending',
           retries,
+          last_error: e.message,
         })
       }
     }
@@ -187,6 +203,7 @@ export async function pullFromSupabase(onProgress) {
 
   let done = 0
   const total = TABLES.length
+  const failures = []
 
   for (const table of TABLES) {
     onProgress?.({ table, done, total })
@@ -198,10 +215,14 @@ export async function pullFromSupabase(onProgress) {
       }
     } catch (e) {
       console.warn(`[sync] pull ${table} gagal:`, e.message)
+      failures.push(`${table}: ${e.message}`)
     }
     done++
   }
   onProgress?.({ table: 'selesai', done: total, total })
+  if (failures.length) {
+    throw new Error(`Sebagian data gagal diambil: ${failures.join('; ')}`)
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -221,6 +242,7 @@ export async function pushAllToSupabase(onProgress) {
 
   let done = 0
   const total = sources.length
+  const failures = []
 
   for (const { name, getData } of sources) {
     onProgress?.({ table: name, done, total })
@@ -229,11 +251,17 @@ export async function pushAllToSupabase(onProgress) {
       const { error } = await supabase.from(name).upsert(rows, {
         onConflict: PK_MAP[name],
       })
-      if (error) console.warn(`[sync] push ${name} error:`, error.message)
+      if (error) {
+        console.warn(`[sync] push ${name} error:`, error.message)
+        failures.push(`${name}: ${error.message}`)
+      }
     }
     done++
   }
   onProgress?.({ table: 'selesai', done: total, total })
+  if (failures.length) {
+    throw new Error(`Sebagian data gagal dikirim: ${failures.join('; ')}`)
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

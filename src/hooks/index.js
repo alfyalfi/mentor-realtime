@@ -84,6 +84,7 @@ export function useSessions(group_id) {
       session_id:  data.session_id || generateId('SES'),
       group_id,
       created_at:  data.created_at || now,
+      updated_at:  now,
       status:      data.status || 'open',
     }
     await sessionsDB.put(s)
@@ -95,7 +96,7 @@ export function useSessions(group_id) {
   const closeSession = useCallback(async (session_id) => {
     const s = await sessionsDB.get(session_id)
     if (!s) return
-    const updated = { ...s, status: 'closed' }
+    const updated = { ...s, status: 'closed', updated_at: new Date().toISOString() }
     await sessionsDB.put(updated)
     await enqueue('upsert', 'sessions', updated)
     await load()
@@ -131,7 +132,7 @@ export function useAttendance(session_id, group_id) {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    if (!session_id || !group_id) return
+    if (!session_id || !group_id) { setRecords({}); setLoading(false); return }
     setLoading(true)
     const rows = await attendanceDB.getBySession(session_id, group_id)
     const map  = {}
@@ -186,7 +187,7 @@ export function useStats(member_id, group_id) {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    if (!member_id || !group_id) return
+    if (!member_id || !group_id) { setHistory([]); setLatest(null); setLoading(false); return }
     setLoading(true)
     const [hist, lat] = await Promise.all([
       statsDB.getByMember(member_id, group_id),

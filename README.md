@@ -1,123 +1,83 @@
-# BEAT — Band Entry & Attendance Tracker
+# Mentor - Band Attendance & Skill Tracker
 
-Aplikasi PWA untuk mencatat absensi latihan band dan perkembangan skill anggota.
+Mentor adalah aplikasi PWA untuk mengelola grup band, absensi latihan, dan perkembangan skill anggota. Aplikasi berjalan offline-first dengan IndexedDB, lalu dapat sinkron antar device lewat Supabase Auth, Database, dan Realtime.
 
 ## Tech Stack
 
 - React 18 + Vite
-- TailwindCSS (dark theme)
-- Recharts (radar chart)
-- Dexie (IndexedDB wrapper)
-- XLSX (import/export Excel)
-- Vite PWA Plugin (manifest + service worker)
-- Google Sheets API (cloud sync)
+- TailwindCSS
+- Vite PWA Plugin
+- Dexie / IndexedDB
+- Supabase Auth, Database, dan Realtime
+- Recharts
+- XLSX import/export
+- html2canvas export PNG
 
-## Cara Menjalankan
+## Fitur Utama
 
-### 1. Install dependencies
+- Multi-grup dengan tema aksen per grup
+- Quick attendance mode dengan default Hadir
+- Anti-duplikat absensi lewat ID deterministik per sesi dan anggota
+- Penilaian skill anggota dengan radar chart dan ranking
+- Statistik absensi, tren kehadiran, dan export PNG
+- Offline-first: data tersimpan lokal di IndexedDB
+- Sync queue otomatis saat offline lalu flush saat online
+- Supabase Realtime untuk update lintas device
+- Import anggota dari Excel, export Excel, backup/restore JSON
+- PWA installable dengan service worker dan notifikasi update
+
+## Menjalankan Lokal
 
 ```bash
-cd beat
 npm install
-```
-
-### 2. Setup environment variables
-
-```bash
-cp .env.example .env
-```
-
-Isi `.env` dengan:
-```
-VITE_SHEETS_API_KEY=your_api_key
-VITE_SPREADSHEET_ID=your_spreadsheet_id
-```
-
-> **Catatan:** Aplikasi berjalan 100% offline tanpa API key.
-> Google Sheets sync hanya aktif jika keduanya diisi.
-
-### 3. Jalankan dev server
-
-```bash
 npm run dev
 ```
 
-Buka http://localhost:5173
+Buka `http://localhost:5173`.
 
-### 4. Build untuk produksi
+## Environment
+
+Salin `.env.example` menjadi `.env`, lalu isi:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Aplikasi tetap bisa boot tanpa env untuk mode offline lokal. Fitur login, pull, push, dan realtime cloud aktif setelah Supabase dikonfigurasi.
+
+## Build Produksi
 
 ```bash
 npm run build
 npm run preview
 ```
 
----
-
-## Setup Google Sheets (Opsional)
-
-### A. Buat Spreadsheet
-1. Buka Google Sheets, buat spreadsheet baru
-2. Buat 5 sheet dengan nama persis:
-   - `groups`
-   - `members`
-   - `sessions`
-   - `attendance`
-   - `stats_history`
-3. Pada setiap sheet, tambahkan header di baris pertama (lihat kolom di `src/services/sheets.js`)
-
-### B. Aktifkan Sheets API
-1. Buka [Google Cloud Console](https://console.cloud.google.com)
-2. Buat project baru
-3. Enable "Google Sheets API"
-4. Buat API Key (Credentials → Create Credentials → API Key)
-5. Salin Spreadsheet ID dari URL: `https://docs.google.com/spreadsheets/d/**SPREADSHEET_ID**/edit`
-
----
+Output produksi ada di `dist/` dan siap dipublish ke Netlify sesuai `netlify.toml`.
 
 ## Struktur Project
 
-```
+```text
 src/
-├── components/
-│   ├── ui/          # Button, Badge, Modal, Card, Slider, dll.
-│   ├── layout/      # Navbar, BottomNav
-│   └── charts/      # MemberRadar, ScoreCards
-├── pages/
-│   ├── Dashboard.jsx
-│   ├── Sessions.jsx  # + AttendancePage
-│   ├── Members.jsx
-│   ├── Stats.jsx
-│   └── Settings.jsx  # Data management panel
-├── services/
-│   ├── indexeddb.js  # Dexie DB + semua operasi
-│   ├── sheets.js     # Google Sheets API
-│   ├── sync.js       # Offline sync queue
-│   └── importExport.js # Excel + JSON backup
-├── hooks/
-│   └── index.js      # useMembers, useSessions, useAttendance, useStats
-├── context/
-│   └── AppContext.jsx # GroupContext + SyncContext
-└── utils/
-    ├── constants.js   # Status, instruments, skill vars
-    └── helpers.js     # ID generator, formatters, helpers
+  components/
+    charts/       Chart Recharts
+    layout/       Navbar dan BottomNav
+    ui/           Komponen UI reusable
+  context/        Auth, group, dan sync provider
+  hooks/          Hook data members, sessions, attendance, stats
+  pages/          Route utama aplikasi
+  services/       IndexedDB, Supabase sync, import/export, auth
+  utils/          Constants dan helper
+supabase/
+  schema.sql      Schema database Supabase
 ```
-
-## Fitur Utama
-
-- **Quick Attendance Mode** — semua anggota default Hadir, trainer hanya mengubah yang perlu
-- **Anti-duplikat** — attendance_id deterministik (`session_id + member_id`)
-- **Radar Chart** — visualisasi 5 variabel skill per anggota (Recharts)
-- **Offline-first** — semua data tersimpan di IndexedDB
-- **Sync queue** — perubahan offline disinkronkan otomatis saat online
-- **Import Excel** — onboarding anggota dari spreadsheet
-- **Backup/Restore JSON** — cadangan data per grup
-- **Multi-grup** — data terpisah sempurna per `group_id`
 
 ## Import Template Excel
 
-Buat file `.xlsx` dengan kolom:
+Kolom yang didukung:
 
-| name | instrument | angkatan | notes |
-|------|-----------|----------|-------|
-| Andi Pratama | Gitar | 2023 | |
-| Budi Santoso | Drum  | 2022 | |
+| name | instrument | jabatan | angkatan | status | notes |
+| --- | --- | --- | --- | --- | --- |
+| Andi Pratama | Guitarist | Anggota | 2023 | active |  |
+
+Alias bahasa Indonesia seperti `nama`, `instrumen`, `posisi`, `tahun`, `catatan`, dan status `aktif/nonaktif/cuti/alumni` juga didukung.

@@ -40,10 +40,10 @@ export const DEFAULT_SCORES = {
 }
 
 export const STATUS_COLOR = {
-  hadir:  'text-beat-cyan   bg-beat-cyan/10   border-beat-cyan/30',
-  izin:   'text-beat-yellow bg-beat-yellow/10 border-beat-yellow/30',
-  sakit:  'text-beat-purple bg-beat-purple/10 border-beat-purple/30',
-  alpha:  'text-beat-coral  bg-beat-coral/10  border-beat-coral/30',
+  hadir:  'text-m-cyandark bg-m-cyan/10 border-m-cyan/30',
+  izin:   'text-m-yelldark bg-m-yellow/10 border-m-yellow/30',
+  sakit:  'text-m-purple bg-m-purple/10 border-m-purple/30',
+  alpha:  'text-m-coral bg-m-coral/10 border-m-coral/30',
 }
 
 export const SHEETS_TABLES = ['groups','members','sessions','attendance','stats_history']

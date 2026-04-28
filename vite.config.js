@@ -4,6 +4,20 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          icons: ['lucide-react'],
+          charts: ['recharts'],
+          db: ['dexie'],
+          excel: ['xlsx'],
+          supabase: ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
 
   plugins: [
     react(),
@@ -14,8 +28,8 @@ export default defineConfig({
         name: 'Mentor — Manajemen Anggota Band',
         short_name: 'Mentor',
         description: 'Catat absensi latihan, kelola anggota, dan pantau perkembangan skill',
-        theme_color: '#050508',
-        background_color: '#050508',
+        theme_color: '#f8f9fb',
+        background_color: '#f8f9fb',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

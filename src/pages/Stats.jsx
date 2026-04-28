@@ -5,7 +5,7 @@ import { useMembers, useStats, useSessions } from '../hooks'
 import { attendanceDB, statsDB } from '../services/indexeddb'
 import { MemberRadar, ScoreCards, AttendanceTrendChart, AttendanceRateChart, MemberRankingChart } from '../components/charts'
 import { Btn, Card, Modal, Slider, Textarea, EmptyState, Spinner, SectionTitle } from '../components/ui'
-import { SKILL_VARS, ATTENDANCE_STATUS } from '../utils/constants'
+import { SKILL_VARS } from '../utils/constants'
 import { formatDate } from '../utils/helpers'
 import { exportToPNG } from '../services/exportImage'
 
@@ -136,15 +136,15 @@ function ExportModal({ open, onClose, activeTab, groupName, exportRefs }) {
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
                   selected[opt.key]
                     ? 'border-[var(--accent)]/40 bg-[var(--accent-soft)]'
-                    : 'border-m-border bg-white/60/30 hover:border-beat-bordhi'
+                    : 'border-m-border bg-white/60 hover:border-m-bordhi'
                 }`}>
                 {/* Checkbox */}
                 <div className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all border ${
                   selected[opt.key]
-                    ? 'bg-beat-cyan border-[var(--accent)]'
+                    ? 'bg-[var(--accent)] border-[var(--accent)]'
                     : 'border-m-border bg-white/60'
                 }`}>
-                  {selected[opt.key] && <Check size={12} className="text-beat-bg" strokeWidth={3}/>}
+                  {selected[opt.key] && <Check size={12} className="text-white" strokeWidth={3}/>}
                 </div>
                 <span className="text-base">{opt.icon}</span>
                 <span className="text-sm font-body text-m-text">{opt.label}</span>
@@ -166,9 +166,9 @@ function ExportModal({ open, onClose, activeTab, groupName, exportRefs }) {
             disabled={!anySelected || exporting}
             className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-body text-sm font-semibold transition-all ${
               done
-                ? 'bg-beat-green text-beat-bg'
+                ? 'bg-m-green text-white'
                 : anySelected && !exporting
-                  ? 'bg-beat-cyan text-beat-bg hover:shadow-glow-cyan active:scale-95'
+                  ? 'bg-[var(--accent)] text-white hover:shadow-card-md active:scale-95'
                   : 'bg-white/60 text-m-muted cursor-not-allowed'
             }`}>
             {done ? (
@@ -404,7 +404,7 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
                 {Object.entries(rankLabels).map(([k, label]) => (
                   <button key={k} onClick={() => setRankMetric(k)}
                     className={`px-2 py-0.5 rounded-full text-[10px] font-body border transition-all ${
-                      rankMetric === k ? 'border-transparent text-beat-bg font-semibold' : 'border-m-border text-m-muted hover:border-beat-bordhi'
+                      rankMetric === k ? 'border-transparent text-white font-semibold' : 'border-m-border text-m-muted hover:border-m-bordhi'
                     }`}
                     style={rankMetric === k ? { background: rankColors[k] } : {}}>
                     {k.charAt(0).toUpperCase() + k.slice(1)}
@@ -599,7 +599,7 @@ function StatsRanking({ members, group_id, exportRefs }) {
           <div className="flex gap-1.5 flex-wrap">
             {SKILL_VARS.map(v => (
               <button key={v.key} onClick={() => setFilterSkill(v.key)}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-body border transition-all ${filterSkill === v.key ? 'border-transparent text-beat-bg font-semibold' : 'border-m-border text-m-muted'}`}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-body border transition-all ${filterSkill === v.key ? 'border-transparent text-white font-semibold' : 'border-m-border text-m-muted'}`}
                 style={filterSkill === v.key ? { background: v.color } : {}}>
                 {v.label}
               </button>
@@ -691,12 +691,6 @@ export default function Stats() {
     return refs
   }, [members, getMemberRef])
 
-  // Merge all refs for the modal
-  const allExportRefs = useMemo(() => ({
-    ...exportRefs,
-    ...(tab === 'penilaian' ? { members: { current: null } } : {}),
-  }), [tab])
-
   const activeMembers = members.filter(m => m.status === 'active')
   if (!activeGroup) return <EmptyState icon="📊" title="Pilih grup dulu"/>
 
@@ -733,7 +727,7 @@ export default function Stats() {
         {TABS.map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-body transition-all duration-200 ${
-              tab === key ? 'bg-beat-cyan text-beat-bg font-semibold' : 'text-m-muted hover:text-m-text'
+              tab === key ? 'bg-[var(--accent)] text-white font-semibold' : 'text-m-muted hover:text-m-text'
             }`}>
             <Icon size={13}/>{label}
           </button>

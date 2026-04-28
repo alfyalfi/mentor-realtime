@@ -1,8 +1,8 @@
-import * as XLSX from 'xlsx'
 import { db, membersDB, sessionsDB, attendanceDB, statsDB, groupsDB } from './indexeddb'
 import { generateId, downloadBlob, dateStamp } from '../utils/helpers'
 
 export async function importMembersFromExcel(file, group_id) {
+  const XLSX = await import('xlsx')
   const buffer = await file.arrayBuffer()
   const wb     = XLSX.read(buffer)
 
@@ -18,6 +18,7 @@ export async function importMembersFromExcel(file, group_id) {
     instrument: ['instrument','instrumen','alat musik','posisi musik'],
     jabatan:    ['jabatan','posisi','role','position'],
     angkatan:   ['angkatan','tahun','batch','year','tahun masuk'],
+    status:     ['status','state','keaktifan'],
     notes:      ['notes','catatan','note','keterangan'],
   }
 
@@ -51,6 +52,22 @@ export async function importMembersFromExcel(file, group_id) {
     return header ? String(row[header] || '').trim() : ''
   }
 
+  function normalizeStatus(value) {
+    const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, '_')
+    const aliases = {
+      active: 'active',
+      aktif: 'active',
+      inactive: 'inactive',
+      nonaktif: 'inactive',
+      non_aktif: 'inactive',
+      alumni: 'alumni',
+      on_leave: 'on_leave',
+      cuti: 'on_leave',
+      izin: 'on_leave',
+    }
+    return aliases[normalized] || 'active'
+  }
+
   const now = new Date().toISOString()
   return rawRows
     .filter(row => getField(row, 'name'))  // skip baris kosong
@@ -62,7 +79,7 @@ export async function importMembersFromExcel(file, group_id) {
       jabatan:    getField(row, 'jabatan')    || 'Anggota',
       angkatan:   getField(row, 'angkatan'),
       notes:      getField(row, 'notes'),
-      status:     'active',
+      status:     normalizeStatus(getField(row, 'status')),
       joined_at:  now.split('T')[0],
       created_at: now,
       updated_at: now,
@@ -70,6 +87,7 @@ export async function importMembersFromExcel(file, group_id) {
 }
 
 export async function exportGroupToExcel(group_id, group_name) {
+  const XLSX = await import('xlsx')
   const [members, sessions, attendance, stats] = await Promise.all([
     membersDB.getByGroup(group_id),
     sessionsDB.getByGroup(group_id),
