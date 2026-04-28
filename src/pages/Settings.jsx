@@ -135,6 +135,8 @@ export default function Settings() {
     try {
       const gid = await restoreBackup(file)
       await refreshGroups()
+      const restoredGroup = await groupsDB.get(gid)
+      if (restoredGroup) setActiveGroup(restoredGroup)
       showToast('Restore berhasil')
     } catch (err) {
       showToast(err.message, 'error')
@@ -195,39 +197,47 @@ export default function Settings() {
       {activeGroup && (
         <div>
           <SectionTitle>Data — {activeGroup.group_name}</SectionTitle>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Import Excel */}
-            <button onClick={() => xlsxRef.current?.click()}
-              disabled={importing}
-              className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
-              <Upload size={20} className="text-[var(--accent)]"/>
-              <span className="text-xs font-body text-m-sub text-center">
-                {importing ? 'Mengimport...' : 'Import Anggota\nfrom Excel'}
-              </span>
-            </button>
-            <input ref={xlsxRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel}/>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-body text-m-muted mb-2">Backup & Restore JSON</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={handleBackup}
+                  className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
+                  <Download size={20} className="text-m-purple"/>
+                  <span className="text-xs font-body text-m-sub text-center">Backup JSON</span>
+                </button>
 
-            {/* Export Excel */}
-            <button onClick={() => exportGroupToExcel(activeGroup.group_id, activeGroup.group_name)}
-              className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
-              <FileSpreadsheet size={20} className="text-m-yellow"/>
-              <span className="text-xs font-body text-m-sub text-center">Export Data\nke Excel</span>
-            </button>
+                <button onClick={() => fileRef.current?.click()}
+                  className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
+                  <Database size={20} className="text-m-coral"/>
+                  <span className="text-xs font-body text-m-sub text-center">Restore JSON</span>
+                </button>
+                <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleRestore}/>
+              </div>
+            </div>
 
-            {/* Backup JSON */}
-            <button onClick={handleBackup}
-              className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
-              <Download size={20} className="text-m-purple"/>
-              <span className="text-xs font-body text-m-sub text-center">Backup JSON</span>
-            </button>
+            <div>
+              <p className="text-xs font-body text-m-muted mb-2">Import / Export Excel</p>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Import Excel */}
+                <button onClick={() => xlsxRef.current?.click()}
+                  disabled={importing}
+                  className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95 disabled:opacity-60">
+                  <Upload size={20} className="text-[var(--accent)]"/>
+                  <span className="text-xs font-body text-m-sub text-center">
+                    {importing ? 'Mengimport...' : 'Import Anggota dari Excel'}
+                  </span>
+                </button>
+                <input ref={xlsxRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel}/>
 
-            {/* Restore */}
-            <button onClick={() => fileRef.current?.click()}
-              className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
-              <Database size={20} className="text-m-coral"/>
-              <span className="text-xs font-body text-m-sub text-center">Restore\nBackup</span>
-            </button>
-            <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleRestore}/>
+                {/* Export Excel */}
+                <button onClick={() => exportGroupToExcel(activeGroup.group_id, activeGroup.group_name)}
+                  className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
+                  <FileSpreadsheet size={20} className="text-m-yellow"/>
+                  <span className="text-xs font-body text-m-sub text-center">Export Data ke Excel</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Excel template hint */}
