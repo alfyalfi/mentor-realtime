@@ -233,6 +233,9 @@ export async function pullFromSupabase(onProgress) {
       if (error) throw new Error(error.message)
       if (data?.length) {
         await DB_MAP[table].bulkPut(data)
+        window.dispatchEvent(new CustomEvent('mentordb:updated', {
+          detail: { table, eventType: 'PULL' }
+        }))
       }
     } catch (e) {
       console.warn(`[sync] pull ${table} gagal:`, e.message)

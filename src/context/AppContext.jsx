@@ -8,7 +8,7 @@
  */
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { groupsDB, syncQueueDB } from '../services/indexeddb'
-import { initSync, runSync, subscribeRealtime } from '../services/sync'
+import { initSync, runSync, subscribeRealtime, pullFromSupabase } from '../services/sync'
 import { isConfigured } from '../services/supabase'
 
 // ─────────────────────────────────────────────────────────────
@@ -104,6 +104,7 @@ export function SyncProvider({ children }) {
   // Halaman subscribe ke nilai ini untuk auto-refresh
   const [lastUpdate, setLastUpdate] = useState(0)
   const unsubRef = useRef(null)
+  const initialPullDoneRef = useRef(false)
 
   // ── Init sync listeners (sekali) ───────────────────────────
   useEffect(() => {
@@ -133,6 +134,27 @@ export function SyncProvider({ children }) {
 
     return () => unsubRef.current?.()
   }, [])
+
+  // ── Initial pull saat app dibuka di device baru ────────────
+  useEffect(() => {
+    if (!isConfigured() || !isOnline || initialPullDoneRef.current) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        await pullFromSupabase()
+        if (!cancelled) {
+          initialPullDoneRef.current = true
+          // Trigger refetch di halaman yang subscribe lastUpdate
+          setLastUpdate(prev => prev + 1)
+        }
+      } catch (e) {
+        console.warn('[sync] initial pull gagal:', e.message)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [isOnline])
 
   // ── Poll pending count ──────────────────────────────────────
   useEffect(() => {

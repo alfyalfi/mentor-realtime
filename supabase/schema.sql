@@ -74,8 +74,7 @@ create index if not exists idx_stats_member       on stats_history (member_id);
 create index if not exists idx_stats_session      on stats_history (session_id);
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────
--- Hanya user yang sudah login (via Supabase Auth) yang bisa akses.
--- Semua data terisolasi per-user di level aplikasi (group_id = milik user tsb).
+-- Mode public: anon + authenticated bisa baca/tulis tanpa login.
 
 alter table groups        enable row level security;
 alter table members       enable row level security;
@@ -96,6 +95,11 @@ drop policy if exists "authenticated read attendance" on attendance;
 drop policy if exists "authenticated write attendance" on attendance;
 drop policy if exists "authenticated read stats_history" on stats_history;
 drop policy if exists "authenticated write stats_history" on stats_history;
+drop policy if exists "public groups all" on groups;
+drop policy if exists "public members all" on members;
+drop policy if exists "public sessions all" on sessions;
+drop policy if exists "public attendance all" on attendance;
+drop policy if exists "public stats_history all" on stats_history;
 
 create policy "public groups all"
   on groups for all using (true) with check (true);
@@ -111,8 +115,70 @@ create policy "public stats_history all"
 -- ── REALTIME ─────────────────────────────────────────────────
 -- Aktifkan Realtime untuk semua tabel
 
-alter publication supabase_realtime add table groups;
-alter publication supabase_realtime add table members;
-alter publication supabase_realtime add table sessions;
-alter publication supabase_realtime add table attendance;
-alter publication supabase_realtime add table stats_history;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_rel pr
+    join pg_publication p on p.oid = pr.prpubid
+    join pg_class c on c.oid = pr.prrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where p.pubname = 'supabase_realtime'
+      and n.nspname = 'public'
+      and c.relname = 'groups'
+  ) then
+    alter publication supabase_realtime add table public.groups;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_publication_rel pr
+    join pg_publication p on p.oid = pr.prpubid
+    join pg_class c on c.oid = pr.prrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where p.pubname = 'supabase_realtime'
+      and n.nspname = 'public'
+      and c.relname = 'members'
+  ) then
+    alter publication supabase_realtime add table public.members;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_publication_rel pr
+    join pg_publication p on p.oid = pr.prpubid
+    join pg_class c on c.oid = pr.prrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where p.pubname = 'supabase_realtime'
+      and n.nspname = 'public'
+      and c.relname = 'sessions'
+  ) then
+    alter publication supabase_realtime add table public.sessions;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_publication_rel pr
+    join pg_publication p on p.oid = pr.prpubid
+    join pg_class c on c.oid = pr.prrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where p.pubname = 'supabase_realtime'
+      and n.nspname = 'public'
+      and c.relname = 'attendance'
+  ) then
+    alter publication supabase_realtime add table public.attendance;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_publication_rel pr
+    join pg_publication p on p.oid = pr.prpubid
+    join pg_class c on c.oid = pr.prrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where p.pubname = 'supabase_realtime'
+      and n.nspname = 'public'
+      and c.relname = 'stats_history'
+  ) then
+    alter publication supabase_realtime add table public.stats_history;
+  end if;
+end $$;

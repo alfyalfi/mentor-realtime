@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, Download, Upload, Database, FileSpreadsheet, X, Music, Mic } from 'lucide-react'
 import { useGroup } from '../context/AppContext'
 import { groupsDB, membersDB } from '../services/indexeddb'
-import { enqueue, pushAllToSupabase } from '../services/sync'
+import { enqueue, pushAllToSupabase, pullFromSupabase } from '../services/sync'
 import { exportGroupToExcel, createBackup, restoreBackup, importMembersFromExcel } from '../services/importExport'
 import { Btn, Card, Modal, Input, Textarea, EmptyState, SectionTitle } from '../components/ui'
 import { generateId, getCustomJabatan, setCustomJabatan, getCustomInstrument, setCustomInstrument } from '../utils/helpers'
@@ -148,6 +148,18 @@ export default function Settings() {
     fileRef.current.value = ''
   }
 
+  async function handlePullCloudNow() {
+    try {
+      if (!navigator.onLine) throw new Error('Butuh internet untuk tarik data cloud')
+      if (!isConfigured()) throw new Error('Supabase belum dikonfigurasi')
+      await pullFromSupabase()
+      await refreshGroups()
+      showToast('Data cloud berhasil dimuat ke device ini')
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
+  }
+
   return (
     <div className="px-4 pt-4 pb-24 max-w-2xl mx-auto animate-fade-in space-y-6">
 
@@ -172,6 +184,12 @@ export default function Settings() {
                 <span className="text-xs font-body text-m-sub text-center">Restore JSON (Global)</span>
               </button>
               <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleRestore}/>
+
+              <button onClick={handlePullCloudNow}
+                className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
+                <Download size={20} className="text-[var(--accent)]"/>
+                <span className="text-xs font-body text-m-sub text-center">Tarik Data Cloud ke Device Ini</span>
+              </button>
             </div>
           </div>
         </div>
