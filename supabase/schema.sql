@@ -83,33 +83,30 @@ alter table sessions      enable row level security;
 alter table attendance    enable row level security;
 alter table stats_history enable row level security;
 
--- Policy: user authenticated bisa SELECT / INSERT / UPDATE / DELETE
--- (Kamu bisa perketat lagi nanti dengan: using (auth.uid()::text = created_by))
+-- Policy public (anon + authenticated) agar app bisa dipakai tanpa login.
+-- WARNING: semua orang dengan URL app dapat baca/tulis data.
 
-create policy "authenticated read groups"
-  on groups for select using (auth.role() = 'authenticated');
-create policy "authenticated write groups"
-  on groups for all using (auth.role() = 'authenticated');
+drop policy if exists "authenticated read groups" on groups;
+drop policy if exists "authenticated write groups" on groups;
+drop policy if exists "authenticated read members" on members;
+drop policy if exists "authenticated write members" on members;
+drop policy if exists "authenticated read sessions" on sessions;
+drop policy if exists "authenticated write sessions" on sessions;
+drop policy if exists "authenticated read attendance" on attendance;
+drop policy if exists "authenticated write attendance" on attendance;
+drop policy if exists "authenticated read stats_history" on stats_history;
+drop policy if exists "authenticated write stats_history" on stats_history;
 
-create policy "authenticated read members"
-  on members for select using (auth.role() = 'authenticated');
-create policy "authenticated write members"
-  on members for all using (auth.role() = 'authenticated');
-
-create policy "authenticated read sessions"
-  on sessions for select using (auth.role() = 'authenticated');
-create policy "authenticated write sessions"
-  on sessions for all using (auth.role() = 'authenticated');
-
-create policy "authenticated read attendance"
-  on attendance for select using (auth.role() = 'authenticated');
-create policy "authenticated write attendance"
-  on attendance for all using (auth.role() = 'authenticated');
-
-create policy "authenticated read stats_history"
-  on stats_history for select using (auth.role() = 'authenticated');
-create policy "authenticated write stats_history"
-  on stats_history for all using (auth.role() = 'authenticated');
+create policy "public groups all"
+  on groups for all using (true) with check (true);
+create policy "public members all"
+  on members for all using (true) with check (true);
+create policy "public sessions all"
+  on sessions for all using (true) with check (true);
+create policy "public attendance all"
+  on attendance for all using (true) with check (true);
+create policy "public stats_history all"
+  on stats_history for all using (true) with check (true);
 
 -- ── REALTIME ─────────────────────────────────────────────────
 -- Aktifkan Realtime untuk semua tabel

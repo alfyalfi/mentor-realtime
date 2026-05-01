@@ -23,14 +23,35 @@ let syncing         = false
 let listenersAdded  = false
 let realtimeChannel = null
 
+function normalizeStatsHistoryRow(row) {
+  if (!row || typeof row !== 'object') return row
+  if (!row.scores || typeof row.scores !== 'object') return row
+  return {
+    ...row,
+    loyalitas: row.scores.loyalitas ?? row.loyalitas ?? null,
+    skill: row.scores.skill ?? row.skill ?? null,
+    kreativitas: row.scores.kreativitas ?? row.kreativitas ?? null,
+    attitude: row.scores.attitude ?? row.attitude ?? null,
+    synergy: row.scores.synergy ?? row.synergy ?? null,
+    scores: undefined,
+  }
+}
+
+function normalizePayloadForSupabase(table, payload) {
+  if (table !== 'stats_history') return payload
+  if (Array.isArray(payload)) return payload.map(normalizeStatsHistoryRow)
+  return normalizeStatsHistoryRow(payload)
+}
+
 // ─────────────────────────────────────────────────────────────
 // INTERNAL: kirim satu operasi ke Supabase
 // ─────────────────────────────────────────────────────────────
 async function syncToSupabase(op, table, payload) {
   if (!isConfigured()) throw new Error('Supabase belum dikonfigurasi')
+  const normalizedPayload = normalizePayloadForSupabase(table, payload)
 
   if (op === 'upsert') {
-    const { error } = await supabase.from(table).upsert(payload, {
+    const { error } = await supabase.from(table).upsert(normalizedPayload, {
       onConflict: PK_MAP[table],   // update jika PK sama
     })
     if (error) throw new Error(error.message)
@@ -248,7 +269,8 @@ export async function pushAllToSupabase(onProgress) {
     onProgress?.({ table: name, done, total })
     const rows = await getData()
     if (rows.length) {
-      const { error } = await supabase.from(name).upsert(rows, {
+      const normalizedRows = normalizePayloadForSupabase(name, rows)
+      const { error } = await supabase.from(name).upsert(normalizedRows, {
         onConflict: PK_MAP[name],
       })
       if (error) {

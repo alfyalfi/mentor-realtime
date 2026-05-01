@@ -9,7 +9,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { groupsDB, syncQueueDB } from '../services/indexeddb'
 import { initSync, runSync, subscribeRealtime } from '../services/sync'
-import { useAuth } from './AuthContext'
+import { isConfigured } from '../services/supabase'
 
 // ─────────────────────────────────────────────────────────────
 // Theme helper
@@ -96,7 +96,6 @@ export const useGroup = () => useContext(GroupCtx)
 const SyncCtx = createContext(null)
 
 export function SyncProvider({ children }) {
-  const { loggedIn } = useAuth() || {}
   const [isOnline,     setIsOnline]     = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
   const [isSyncing,    setIsSyncing]    = useState(false)
@@ -119,9 +118,9 @@ export function SyncProvider({ children }) {
     }
   }, [])
 
-  // ── Subscribe Realtime saat user login ─────────────────────
+  // ── Subscribe Realtime tanpa login (public anon) ───────────
   useEffect(() => {
-    if (!loggedIn) {
+    if (!isConfigured()) {
       unsubRef.current?.()
       return
     }
@@ -133,7 +132,7 @@ export function SyncProvider({ children }) {
     })
 
     return () => unsubRef.current?.()
-  }, [loggedIn])
+  }, [])
 
   // ── Poll pending count ──────────────────────────────────────
   useEffect(() => {

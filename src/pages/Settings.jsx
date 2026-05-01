@@ -1,13 +1,13 @@
-import { GoogleLoginCard } from '../components/ui/GoogleLoginCard'
 import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, Download, Upload, Database, FileSpreadsheet, X, Music, Mic } from 'lucide-react'
 import { useGroup } from '../context/AppContext'
 import { groupsDB, membersDB } from '../services/indexeddb'
-import { enqueue } from '../services/sync'
+import { enqueue, pushAllToSupabase } from '../services/sync'
 import { exportGroupToExcel, createBackup, restoreBackup, importMembersFromExcel } from '../services/importExport'
 import { Btn, Card, Modal, Input, Textarea, EmptyState, SectionTitle } from '../components/ui'
 import { generateId, getCustomJabatan, setCustomJabatan, getCustomInstrument, setCustomInstrument } from '../utils/helpers'
 import { JABATAN, INSTRUMENTS } from '../utils/constants'
+import { isConfigured } from '../services/supabase'
 
 function GroupForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState(initial || { group_name: '', description: '' })
@@ -134,10 +134,14 @@ export default function Settings() {
     if (!file) return
     try {
       const gid = await restoreBackup(file)
+      if (navigator.onLine && isConfigured()) {
+        showToast('Restore lokal selesai, sinkron ke database cloud...')
+        await pushAllToSupabase()
+      }
       await refreshGroups()
       const restoredGroup = await groupsDB.get(gid)
       if (restoredGroup) setActiveGroup(restoredGroup)
-      showToast('Restore berhasil')
+      showToast(navigator.onLine && isConfigured() ? 'Restore + sinkron database berhasil' : 'Restore berhasil (offline mode)')
     } catch (err) {
       showToast(err.message, 'error')
     }
@@ -155,8 +159,23 @@ export default function Settings() {
         </div>
       )}
 
-      {/* Supabase sync + login */}
-      <GoogleLoginCard onPullDone={refreshGroups}/>
+      {/* App tools (global) */}
+      <div>
+        <SectionTitle>Kelola Aplikasi</SectionTitle>
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-body text-m-muted mb-2">Backup & Restore JSON</p>
+            <div className="grid grid-cols-1 gap-3">
+              <button onClick={() => fileRef.current?.click()}
+                className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
+                <Database size={20} className="text-m-coral"/>
+                <span className="text-xs font-body text-m-sub text-center">Restore JSON (Global)</span>
+              </button>
+              <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleRestore}/>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Groups management */}
       <div>
@@ -199,20 +218,13 @@ export default function Settings() {
           <SectionTitle>Data — {activeGroup.group_name}</SectionTitle>
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-body text-m-muted mb-2">Backup & Restore JSON</p>
-              <div className="grid grid-cols-2 gap-3">
+              <p className="text-xs font-body text-m-muted mb-2">Backup Grup JSON</p>
+              <div className="grid grid-cols-1 gap-3">
                 <button onClick={handleBackup}
                   className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
                   <Download size={20} className="text-m-purple"/>
-                  <span className="text-xs font-body text-m-sub text-center">Backup JSON</span>
+                  <span className="text-xs font-body text-m-sub text-center">Backup JSON Grup Aktif</span>
                 </button>
-
-                <button onClick={() => fileRef.current?.click()}
-                  className="flex flex-col items-center gap-2 p-4 card-glass rounded-2xl hover:border-m-bordhi transition-all active:scale-95">
-                  <Database size={20} className="text-m-coral"/>
-                  <span className="text-xs font-body text-m-sub text-center">Restore JSON</span>
-                </button>
-                <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleRestore}/>
               </div>
             </div>
 
