@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { Navbar, BottomNav } from './components/layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { PWAUpdateToast } from './components/PWAUpdateToast'
@@ -14,12 +14,16 @@ const AttendancePage = lazy(() =>
 const Members = lazy(() => import('./pages/Members'))
 const Stats = lazy(() => import('./pages/Stats'))
 const Settings = lazy(() => import('./pages/Settings'))
+const Preview = lazy(() => import('./pages/Preview'))
 
 export default function App() {
+  const location = useLocation()
+  const isPreviewRoute = location.pathname.startsWith('/preview/')
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-m-bg">
-        <Navbar/>
+        {!isPreviewRoute && <Navbar/>}
         <main>
           <Suspense fallback={<Spinner/>}>
             <Routes>
@@ -30,10 +34,11 @@ export default function App() {
               <Route path="/members"                element={<Members/>}/>
               <Route path="/stats"                  element={<Stats/>}/>
               <Route path="/settings"               element={<Settings/>}/>
+              <Route path="/preview/:group_id"      element={<Preview/>}/>
             </Routes>
           </Suspense>
         </main>
-        <BottomNav/>
+        {!isPreviewRoute && <BottomNav/>}
         <PWAUpdateToast/>
       </div>
     </ErrorBoundary>

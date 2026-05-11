@@ -1,6 +1,6 @@
 import { useEffect, useState, memo } from 'react'
 import { Link } from 'react-router-dom'
-import { ClipboardList, Users, TrendingUp, ChevronRight } from 'lucide-react'
+import { ClipboardList, Users, TrendingUp, ChevronRight, Smartphone, Link2, Check } from 'lucide-react'
 import { useGroup } from '../context/AppContext'
 import { membersDB, sessionsDB, attendanceDB } from '../services/indexeddb'
 import { Card, SectionTitle, EmptyState, SkeletonCard } from '../components/ui'
@@ -19,6 +19,19 @@ export default function Dashboard() {
   const [stats,   setStats]   = useState(null)
   const [recent,  setRecent]  = useState([])
   const [loading, setLoading] = useState(true)
+  const [copied,  setCopied]  = useState(false)
+
+  async function handleCopyPreviewLink() {
+    if (!activeGroup) return
+    const previewUrl = `${window.location.origin}/preview/${activeGroup.group_id}`
+    try {
+      await navigator.clipboard.writeText(previewUrl)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    } catch (error) {
+      console.warn('Copy preview link gagal:', error)
+    }
+  }
 
   useEffect(() => {
     if (!activeGroup) { setLoading(false); return }
@@ -150,11 +163,12 @@ export default function Dashboard() {
       {/* Quick actions */}
       <div>
         <SectionTitle>Aksi Cepat</SectionTitle>
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {[
             { to: '/sessions', icon: ClipboardList, label: 'Sesi Baru' },
             { to: '/members',  icon: Users,         label: 'Anggota'   },
             { to: '/stats',    icon: TrendingUp,    label: 'Stats'     },
+            { to: `/preview/${activeGroup.group_id}`, icon: Smartphone, label: 'Preview' },
           ].map(a => (
             <Link key={a.to} to={a.to}
               className="card-glass rounded-2xl p-4 flex flex-col items-center gap-2 hover:shadow-card-lift transition-all active:scale-95">
@@ -163,6 +177,14 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
+        <button
+          onClick={handleCopyPreviewLink}
+          className={`mt-2.5 w-full card-glass rounded-2xl px-4 py-3 flex items-center justify-center gap-2 transition-all ${
+            copied ? 'border border-emerald-200 text-emerald-700 bg-emerald-50/90' : 'hover:shadow-card-md text-m-sub'
+          }`}>
+          {copied ? <Check size={16}/> : <Link2 size={16} style={{ color: 'var(--accent)' }}/>}
+          <span className="text-xs font-body font-medium">{copied ? 'Link preview tersalin' : 'Copy Link Preview'}</span>
+        </button>
       </div>
 
       {/* Recent sessions */}

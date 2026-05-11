@@ -476,6 +476,12 @@ function clampScore(value) {
   return Math.max(0, Math.min(100, value))
 }
 
+function getScoreTone(score) {
+  if (score < 50) return '#ef4444'
+  if (score < 80) return '#16a34a'
+  return 'var(--accent)'
+}
+
 function getQuickEditSession(sessions) {
   if (!sessions.length) return null
   const sorted = [...sessions].sort((left, right) => right.session_date.localeCompare(left.session_date))
@@ -507,20 +513,20 @@ function QuickSkillEditor({ sessions, sessionId, onSessionChange, scores, note, 
           <div key={skill.key} className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 border border-white">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-body font-semibold text-m-text truncate">{skill.label}</p>
-              <p className="text-[10px] font-body text-m-muted">Atur cepat per langkah 5 poin</p>
+              <p className="text-[10px] font-body text-m-muted">Atur cepat per langkah 1 poin</p>
             </div>
             <button
-              onClick={() => onAdjust(skill.key, -5)}
+              onClick={() => onAdjust(skill.key, -1)}
               className="w-9 h-9 rounded-xl border border-m-border bg-white text-m-sub hover:border-m-bordhi hover:text-m-text transition-colors flex items-center justify-center">
               <Minus size={14}/>
             </button>
             <div className="w-12 text-center">
-              <div className="text-lg font-display font-bold" style={{ color: skill.color }}>
+              <div className="text-lg font-display font-bold" style={{ color: getScoreTone(scores?.[skill.key] ?? 0) }}>
                 {scores?.[skill.key] ?? 0}
               </div>
             </div>
             <button
-              onClick={() => onAdjust(skill.key, 5)}
+              onClick={() => onAdjust(skill.key, 1)}
               className="w-9 h-9 rounded-xl border border-[var(--accent-glow)] bg-white text-[var(--accent)] hover:border-[var(--accent)] transition-colors flex items-center justify-center">
               <Plus size={14}/>
             </button>
