@@ -254,6 +254,7 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
   const [filterAngkatan, setFilterAngkatan] = useState('all')
   const [selectedWindow, setSelectedWindow] = useState('')
   const [chartData, setChartData] = useState([])
+  const [rateData, setRateData] = useState([])
   const [rankData, setRankData] = useState([])
   const [loading, setLoading] = useState(true)
   const [rankMetric, setRankMetric] = useState('hadir')
@@ -311,8 +312,9 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
   ), [sessionWindows, selectedWindow])
 
   useEffect(() => {
-    if (!group_id || visibleSessions.length === 0) {
+    if (!group_id || sessions.length === 0) {
       setChartData([])
+      setRateData([])
       setRankData([])
       setLoading(false)
       return
@@ -320,12 +322,16 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
 
     setLoading(true)
     async function compute() {
-      const allAttendance = await Promise.all(
+      const allSessionRows = [...sessions].sort((left, right) => left.session_date.localeCompare(right.session_date))
+      const visibleAttendance = await Promise.all(
         visibleSessions.map(session => attendanceDB.getBySession(session.session_id, group_id))
+      )
+      const allAttendance = await Promise.all(
+        allSessionRows.map(session => attendanceDB.getBySession(session.session_id, group_id))
       )
 
       const trend = visibleSessions.map((session, index) => {
-        const attendance = allAttendance[index].filter(item => memberIds.has(item.member_id))
+        const attendance = visibleAttendance[index].filter(item => memberIds.has(item.member_id))
         const counts = { hadir: 0, izin: 0, sakit: 0, alpha: 0 }
         attendance.forEach(item => {
           if (counts[item.status] !== undefined) counts[item.status]++
@@ -344,6 +350,21 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
         }
       })
       setChartData(trend)
+
+      const summaryTrend = allSessionRows.map((session, index) => {
+        const attendance = allAttendance[index].filter(item => memberIds.has(item.member_id))
+        const counts = { hadir: 0, izin: 0, sakit: 0, alpha: 0 }
+        attendance.forEach(item => {
+          if (counts[item.status] !== undefined) counts[item.status]++
+        })
+        const total = attendance.length || 1
+        return {
+          label: session.title.length > 12 ? `${session.title.slice(0, 10)}...` : session.title,
+          date: session.session_date,
+          pctHadir: Math.round((counts.hadir / total) * 100),
+        }
+      })
+      setRateData(summaryTrend)
 
       const memberStats = {}
       filteredMembers.forEach(member => {
@@ -379,7 +400,7 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
     }
 
     compute()
-  }, [group_id, visibleSessions, memberIds, filteredMembers])
+  }, [group_id, sessions, visibleSessions, memberIds, filteredMembers])
 
   const sortedRank = useMemo(() => (
     [...rankData].map(member => ({ ...member, value: member[rankMetric] })).sort((left, right) => right.value - left.value)
@@ -394,7 +415,6 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
     filterInstrument !== 'all' && filterInstrument,
     filterJabatan !== 'all' && filterJabatan,
     filterAngkatan !== 'all' && `Angkatan ${filterAngkatan}`,
-    activeWindowMeta?.label,
   ].filter(Boolean).join(' - ')
 
   return (
@@ -434,9 +454,9 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
             </select>
           </div>
           <div>
-            <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Blok Sesi</p>
+            <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Total Sesi</p>
             <div className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body">
-              {activeWindowMeta?.summary ?? 'Belum ada sesi'}
+              {sessions.length} sesi
             </div>
           </div>
         </div>
@@ -473,19 +493,19 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
             <ExportSection
               exportRef={exportRefs.trend}
               title="Tren Absensi per Sesi"
-              subtitle={filterLabel || 'Semua anggota aktif'}>
+              subtitle={activeWindowMeta ? `${filterLabel ? `${filterLabel} - ` : ''}${activeWindowMeta.label}` : (filterLabel || 'Semua anggota aktif')}>
               <AttendanceTrendChart data={chartData}/>
             </ExportSection>
           </div>
 
-          {chartData.length > 1 && (
+          {rateData.length > 1 && (
             <div>
               <SectionTitle>Persentase Kehadiran</SectionTitle>
               <ExportSection
                 exportRef={exportRefs.rate}
                 title="Persentase Kehadiran"
                 subtitle={filterLabel || 'Semua anggota aktif'}>
-                <AttendanceRateChart data={chartData}/>
+                <AttendanceRateChart data={rateData}/>
               </ExportSection>
             </div>
           )}
@@ -557,7 +577,7 @@ function getQuickEditSession(sessions) {
   return sorted.find(session => session.status === 'open') || sorted[0]
 }
 
-function QuickSkillEditor({ sessions, sessionId, onSessionChange, scores, note, onNoteChange, onAdjust, onCancel, onSave, saving }) {
+function QuickSkillEditor({ scores, note, onNoteChange, onAdjust, onCancel, onSave, saving }) {
   const holdTimeoutRef = useRef(null)
   const holdIntervalRef = useRef(null)
 
@@ -596,16 +616,9 @@ function QuickSkillEditor({ sessions, sessionId, onSessionChange, scores, note, 
           <p className="text-[10px] font-display font-semibold tracking-[0.16em] uppercase text-[var(--accent)]">Quick Edit</p>
           <p className="text-xs font-body text-m-muted">Tambah poin langsung tanpa pindah modal.</p>
         </div>
-        <select
-          value={sessionId}
-          onChange={event => onSessionChange(event.target.value)}
-          className="min-w-[160px] bg-white border border-m-border rounded-xl px-3 py-2 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
-          {sessions.map(session => (
-            <option key={session.session_id} value={session.session_id}>
-              {session.title} - {formatDate(session.session_date)}
-            </option>
-          ))}
-        </select>
+        <div className="rounded-xl border border-white/80 bg-white/80 px-3 py-2 text-[11px] font-body text-m-muted">
+          Autosave ke sesi aktif/terbaru
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -778,12 +791,12 @@ function MemberStatCard({ member, group_id, exportRef, sessions }) {
                 <MemberRadar latest={latest} previous={prev}/>
                 {latest && <ScoreCards scores={latest.scores} prevScores={prev?.scores}/>}
               </ExportSection>
+              <p className="text-[11px] font-body text-m-muted">
+                {latest?.session_date ? `Terakhir update ${formatDate(latest.session_date)}` : 'Belum ada update penilaian'}
+              </p>
 
               {editing && canEdit && (
                 <QuickSkillEditor
-                  sessions={sessions}
-                  sessionId={sessionId}
-                  onSessionChange={setSessionId}
                   scores={draftScores}
                   note={note}
                   onNoteChange={setNote}
@@ -821,10 +834,9 @@ function MemberStatCard({ member, group_id, exportRef, sessions }) {
   )
 }
 
-function CompareMembersPanel({ members, group_id, sessions }) {
+function CompareMembersPanel({ members, group_id }) {
   const [leftId, setLeftId] = useState(members[0]?.member_id ?? '')
   const [rightId, setRightId] = useState(members[1]?.member_id ?? members[0]?.member_id ?? '')
-  const [sessionId, setSessionId] = useState('')
   const [loading, setLoading] = useState(true)
   const [compareData, setCompareData] = useState(null)
 
@@ -848,16 +860,7 @@ function CompareMembersPanel({ members, group_id, sessions }) {
   }, [leftId, rightId, members])
 
   useEffect(() => {
-    if (!sessions.length) {
-      setSessionId('')
-      return
-    }
-    const sorted = [...sessions].sort((left, right) => right.session_date.localeCompare(left.session_date))
-    setSessionId(current => sorted.some(session => session.session_id === current) ? current : sorted[0].session_id)
-  }, [sessions])
-
-  useEffect(() => {
-    if (!group_id || !leftId || !rightId || !sessionId) {
+    if (!group_id || !leftId || !rightId) {
       setCompareData(null)
       setLoading(false)
       return
@@ -867,20 +870,14 @@ function CompareMembersPanel({ members, group_id, sessions }) {
     setLoading(true)
 
     async function loadCompare() {
-      const [leftLatest, rightLatest, leftHistory, rightHistory, leftAttendance, rightAttendance] = await Promise.all([
+      const [leftLatest, rightLatest, leftAttendanceRows, rightAttendanceRows] = await Promise.all([
         statsDB.getLatest(leftId, group_id),
         statsDB.getLatest(rightId, group_id),
-        statsDB.getByMember(leftId, group_id),
-        statsDB.getByMember(rightId, group_id),
         attendanceDB.getByMember(leftId, group_id),
         attendanceDB.getByMember(rightId, group_id),
       ])
 
       if (!active) return
-
-      const session = sessions.find(item => item.session_id === sessionId)
-      const leftSessionAttendance = leftAttendance.find(item => item.session_id === sessionId) ?? null
-      const rightSessionAttendance = rightAttendance.find(item => item.session_id === sessionId) ?? null
 
       const summarizeAttendance = rows => {
         const total = rows.length || 1
@@ -889,7 +886,6 @@ function CompareMembersPanel({ members, group_id, sessions }) {
           if (counts[row.status] !== undefined) counts[row.status] += 1
         })
         return {
-          counts,
           pctHadir: Math.round((counts.hadir / total) * 100),
           pctIzin: Math.round((counts.izin / total) * 100),
           pctSakit: Math.round((counts.sakit / total) * 100),
@@ -899,15 +895,10 @@ function CompareMembersPanel({ members, group_id, sessions }) {
       }
 
       setCompareData({
-        session,
         leftLatest,
         rightLatest,
-        leftPrev: leftHistory.length >= 2 ? leftHistory[leftHistory.length - 2] : null,
-        rightPrev: rightHistory.length >= 2 ? rightHistory[rightHistory.length - 2] : null,
-        leftAttendance: summarizeAttendance(leftAttendance),
-        rightAttendance: summarizeAttendance(rightAttendance),
-        leftSessionAttendance,
-        rightSessionAttendance,
+        leftAttendance: summarizeAttendance(leftAttendanceRows),
+        rightAttendance: summarizeAttendance(rightAttendanceRows),
       })
       setLoading(false)
     }
@@ -916,18 +907,10 @@ function CompareMembersPanel({ members, group_id, sessions }) {
     return () => {
       active = false
     }
-  }, [group_id, leftId, rightId, sessionId, sessions])
+  }, [group_id, leftId, rightId])
 
   const leftMember = members.find(member => member.member_id === leftId)
   const rightMember = members.find(member => member.member_id === rightId)
-  const attendanceStatusStyles = {
-    hadir: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-    izin: 'bg-amber-50 text-amber-700 border-amber-200',
-    sakit: 'bg-violet-50 text-violet-700 border-violet-200',
-    alpha: 'bg-rose-50 text-rose-700 border-rose-200',
-    empty: 'bg-slate-50 text-slate-500 border-slate-200',
-  }
-
   const compareRows = SKILL_VARS.map(skill => {
     const leftValue = compareData?.leftLatest?.scores?.[skill.key] ?? 0
     const rightValue = compareData?.rightLatest?.scores?.[skill.key] ?? 0
@@ -940,15 +923,13 @@ function CompareMembersPanel({ members, group_id, sessions }) {
   })
 
   return (
-    <div className="card-glass rounded-3xl p-4 sm:p-5 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-display font-semibold tracking-[0.16em] uppercase text-[var(--accent)]">Compare Anggota</p>
-          <p className="text-sm font-body text-m-muted">Bandingkan radar penilaian dan kehadiran dua anggota dalam satu panel.</p>
-        </div>
+    <div className="card-glass rounded-3xl p-4 sm:p-5 space-y-4 mt-5">
+      <div>
+        <p className="text-[10px] font-display font-semibold tracking-[0.16em] uppercase text-[var(--accent)]">Compare Anggota</p>
+        <p className="text-sm font-body text-m-muted">Fitur opsional untuk membandingkan snapshot nilai dan ringkasan kehadiran dua anggota.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <select
           value={leftId}
           onChange={event => setLeftId(event.target.value)}
@@ -960,18 +941,6 @@ function CompareMembersPanel({ members, group_id, sessions }) {
           onChange={event => setRightId(event.target.value)}
           className="bg-white/80 border border-m-border rounded-xl px-3 py-2 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
           {members.map(member => <option key={member.member_id} value={member.member_id}>{member.name}</option>)}
-        </select>
-        <select
-          value={sessionId}
-          onChange={event => setSessionId(event.target.value)}
-          className="bg-white/80 border border-m-border rounded-xl px-3 py-2 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
-          {[...sessions]
-            .sort((left, right) => right.session_date.localeCompare(left.session_date))
-            .map(session => (
-              <option key={session.session_id} value={session.session_id}>
-                {session.title} - {formatDate(session.session_date)}
-              </option>
-            ))}
         </select>
       </div>
 
@@ -990,14 +959,9 @@ function CompareMembersPanel({ members, group_id, sessions }) {
                   <p className="text-[10px] font-display tracking-[0.15em] uppercase text-[var(--accent)]">{index === 0 ? 'Anggota A' : 'Anggota B'}</p>
                   <p className="text-sm font-body font-semibold text-m-text mt-1">{member?.name}</p>
                   <p className="text-xs font-body text-m-muted">{member?.instrument}</p>
-                  <div className="mt-3 flex items-end justify-between">
-                    <div>
-                      <p className="text-[10px] font-body text-m-muted uppercase">Rata-rata</p>
-                      <p className="text-2xl font-display" style={{ color: getScoreTone(average) }}>{average}</p>
-                    </div>
-                    <p className="text-[10px] font-body text-m-muted text-right">
-                      {latest?.session_date ? `Update ${formatDate(latest.session_date)}` : 'Belum ada penilaian'}
-                    </p>
+                  <div className="mt-3">
+                    <p className="text-[10px] font-body text-m-muted uppercase">Rata-rata</p>
+                    <p className="text-2xl font-display" style={{ color: getScoreTone(average) }}>{average}</p>
                   </div>
                 </div>
               )
@@ -1010,6 +974,11 @@ function CompareMembersPanel({ members, group_id, sessions }) {
             leftLabel={leftMember?.name?.split(' ')[0] ?? 'A'}
             rightLabel={rightMember?.name?.split(' ')[0] ?? 'B'}
           />
+          <p className="text-[11px] font-body text-m-muted">
+            {compareData.leftLatest?.session_date || compareData.rightLatest?.session_date
+              ? `Terakhir update ${formatDate(compareData.leftLatest?.session_date ?? compareData.rightLatest?.session_date)}`
+              : 'Belum ada update penilaian'}
+          </p>
 
           <div className="rounded-2xl border border-white/80 bg-white/72 p-3 space-y-2">
             <div className="flex items-center justify-between">
@@ -1040,46 +1009,23 @@ function CompareMembersPanel({ members, group_id, sessions }) {
           </div>
 
           <div className="rounded-2xl border border-white/80 bg-white/72 p-3 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-body font-semibold text-m-text">Compare Kehadiran</p>
-                <p className="text-[11px] font-body text-m-muted">
-                  Sesi dipilih: {compareData.session ? `${compareData.session.title} - ${formatDate(compareData.session.session_date)}` : 'Belum ada sesi'}
-                </p>
-              </div>
-            </div>
+            <p className="text-xs font-body font-semibold text-m-text">Ringkasan Kehadiran</p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                {
-                  label: 'Anggota A',
-                  member: leftMember,
-                  sessionAttendance: compareData.leftSessionAttendance,
-                  overall: compareData.leftAttendance,
-                },
-                {
-                  label: 'Anggota B',
-                  member: rightMember,
-                  sessionAttendance: compareData.rightSessionAttendance,
-                  overall: compareData.rightAttendance,
-                },
-              ].map(item => {
-                const statusKey = item.sessionAttendance?.status ?? 'empty'
-                return (
-                  <div key={item.label} className="rounded-2xl border border-white/80 bg-white/80 p-3">
-                    <p className="text-[10px] font-display tracking-[0.15em] uppercase text-[var(--accent)]">{item.label}</p>
-                    <p className="text-sm font-body font-semibold text-m-text mt-1">{item.member?.name}</p>
-                    <span className={`inline-flex mt-2 px-2.5 py-1 rounded-full border text-[11px] font-body ${attendanceStatusStyles[statusKey]}`}>
-                      {item.sessionAttendance?.status ? item.sessionAttendance.status.toUpperCase() : 'BELUM DIISI'}
-                    </span>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-body">
-                      <div className="rounded-xl bg-cyan-50 px-2.5 py-2 text-cyan-700">Hadir {item.overall.pctHadir}%</div>
-                      <div className="rounded-xl bg-amber-50 px-2.5 py-2 text-amber-700">Izin {item.overall.pctIzin}%</div>
-                      <div className="rounded-xl bg-violet-50 px-2.5 py-2 text-violet-700">Sakit {item.overall.pctSakit}%</div>
-                      <div className="rounded-xl bg-rose-50 px-2.5 py-2 text-rose-700">Alpha {item.overall.pctAlpha}%</div>
-                    </div>
+                { label: 'Anggota A', member: leftMember, overall: compareData.leftAttendance },
+                { label: 'Anggota B', member: rightMember, overall: compareData.rightAttendance },
+              ].map(item => (
+                <div key={item.label} className="rounded-2xl border border-white/80 bg-white/80 p-3">
+                  <p className="text-[10px] font-display tracking-[0.15em] uppercase text-[var(--accent)]">{item.label}</p>
+                  <p className="text-sm font-body font-semibold text-m-text mt-1">{item.member?.name}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-body">
+                    <div className="rounded-xl bg-cyan-50 px-2.5 py-2 text-cyan-700">Hadir {item.overall.pctHadir}%</div>
+                    <div className="rounded-xl bg-amber-50 px-2.5 py-2 text-amber-700">Izin {item.overall.pctIzin}%</div>
+                    <div className="rounded-xl bg-violet-50 px-2.5 py-2 text-violet-700">Sakit {item.overall.pctSakit}%</div>
+                    <div className="rounded-xl bg-rose-50 px-2.5 py-2 text-rose-700">Alpha {item.overall.pctAlpha}%</div>
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           </div>
         </>
@@ -1287,7 +1233,6 @@ export default function Stats() {
             ? <EmptyState icon="MU" title="Belum ada anggota aktif"/>
             : (
               <div className="space-y-2">
-                <CompareMembersPanel members={activeMembers} group_id={gid} sessions={sessions}/>
                 <div ref={exportRefs.members} className="space-y-2">
                 {activeMembers.map(member => (
                   <MemberStatCard
@@ -1299,6 +1244,7 @@ export default function Stats() {
                   />
                 ))}
                 </div>
+                <CompareMembersPanel members={activeMembers} group_id={gid}/>
               </div>
             )
       )}
