@@ -1,16 +1,35 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { ChevronDown, BarChart2, Users, TrendingUp, Filter, Camera, X, Check, Download, Loader2 } from 'lucide-react'
+import {
+  ChevronDown,
+  BarChart2,
+  Users,
+  TrendingUp,
+  Filter,
+  Camera,
+  X,
+  Check,
+  Download,
+  Loader2,
+  PencilLine,
+  Minus,
+  Plus,
+  Save,
+} from 'lucide-react'
 import { useGroup } from '../context/AppContext'
 import { useMembers, useStats, useSessions } from '../hooks'
 import { attendanceDB, statsDB } from '../services/indexeddb'
-import { MemberRadar, ScoreCards, AttendanceTrendChart, AttendanceRateChart, MemberRankingChart } from '../components/charts'
-import { Btn, Card, Modal, Slider, Textarea, EmptyState, Spinner, SectionTitle } from '../components/ui'
+import {
+  MemberRadar,
+  ScoreCards,
+  AttendanceTrendChart,
+  AttendanceRateChart,
+  MemberRankingChart,
+} from '../components/charts'
+import { Btn, Card, Textarea, EmptyState, Spinner, SectionTitle } from '../components/ui'
 import { SKILL_VARS } from '../utils/constants'
 import { formatDate } from '../utils/helpers'
 import { exportToPNG } from '../services/exportImage'
 
-// ─────────────────────────────────────────────────────────────
-// Skeleton loader
 function SkeletonCard() {
   return (
     <div className="card-glass rounded-2xl p-4 animate-pulse">
@@ -26,77 +45,72 @@ function SkeletonCard() {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// Export PNG Modal
 function ExportModal({ open, onClose, activeTab, groupName, exportRefs }) {
-  const [selected,   setSelected]   = useState({})
-  const [exporting,  setExporting]  = useState(false)
-  const [done,       setDone]       = useState(false)
+  const [selected, setSelected] = useState({})
+  const [exporting, setExporting] = useState(false)
+  const [done, setDone] = useState(false)
 
-  // Build options based on active tab
-  const OPTIONS = useMemo(() => {
-    if (activeTab === 'absensi') return [
-      { key: 'trend',   label: 'Chart Tren Absensi',      icon: '📊' },
-      { key: 'rate',    label: 'Chart % Kehadiran',        icon: '📈' },
-      { key: 'ranking', label: 'Ranking Kehadiran Anggota',icon: '🏆' },
-    ]
-    if (activeTab === 'penilaian') return [
-      { key: 'members', label: 'Radar & Skor Semua Anggota', icon: '🎯' },
-    ]
-    if (activeTab === 'ranking') return [
-      { key: 'skillrank', label: 'Ranking Skill Anggota', icon: '⭐' },
-    ]
+  const options = useMemo(() => {
+    if (activeTab === 'absensi') {
+      return [
+        { key: 'trend', label: 'Chart Tren Absensi', icon: 'PA' },
+        { key: 'rate', label: 'Chart % Kehadiran', icon: 'PR' },
+        { key: 'ranking', label: 'Ranking Kehadiran Anggota', icon: 'RK' },
+      ]
+    }
+    if (activeTab === 'penilaian') {
+      return [{ key: 'members', label: 'Radar & Skor Semua Anggota', icon: 'RS' }]
+    }
+    if (activeTab === 'ranking') {
+      return [{ key: 'skillrank', label: 'Ranking Skill Anggota', icon: 'SK' }]
+    }
     return []
   }, [activeTab])
 
-  // Auto-select all on open
   useEffect(() => {
-    if (open) {
-      const init = {}
-      OPTIONS.forEach(o => { init[o.key] = true })
-      setSelected(init)
-      setDone(false)
-    }
-  }, [open, OPTIONS])
+    if (!open) return
+    const initialState = {}
+    options.forEach(option => {
+      initialState[option.key] = true
+    })
+    setSelected(initialState)
+    setDone(false)
+  }, [open, options])
 
   function toggle(key) {
-    setSelected(s => ({ ...s, [key]: !s[key] }))
+    setSelected(current => ({ ...current, [key]: !current[key] }))
   }
 
   async function handleExport() {
-    const activeKeys = Object.entries(selected).filter(([,v]) => v).map(([k]) => k)
-    if (activeKeys.length === 0) return
+    const activeKeys = Object.entries(selected)
+      .filter(([, value]) => value)
+      .map(([key]) => key)
+
+    if (!activeKeys.length) return
 
     setExporting(true)
     try {
-      // Collect elements to export
-      const elements = []
-      activeKeys.forEach(key => {
-        const el = exportRefs[key]?.current
-        if (el) elements.push({ key, el })
-      })
+      const elements = activeKeys
+        .map(key => ({ key, el: exportRefs[key]?.current }))
+        .filter(item => item.el)
 
-      if (elements.length === 1) {
-        // Single element → direct export
+      for (const { key, el } of elements) {
         await exportToPNG(
-          elements[0].el,
-          `Mentor_${groupName}_${activeTab}_${elements[0].key}_${new Date().toISOString().slice(0,10)}.png`
+          el,
+          `Mentor_${groupName}_${activeTab}_${key}_${new Date().toISOString().slice(0, 10)}.png`
         )
-      } else if (elements.length > 1) {
-        // Multiple → export each separately
-        for (const { key, el } of elements) {
-          await exportToPNG(
-            el,
-            `Mentor_${groupName}_${activeTab}_${key}_${new Date().toISOString().slice(0,10)}.png`
-          )
-          // Small delay between downloads
-          await new Promise(r => setTimeout(r, 300))
+        if (elements.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 300))
         }
       }
+
       setDone(true)
-      setTimeout(() => { setDone(false); onClose() }, 1500)
-    } catch (e) {
-      console.error('Export failed:', e)
+      setTimeout(() => {
+        setDone(false)
+        onClose()
+      }, 1500)
+    } catch (error) {
+      console.error('Export failed:', error)
     }
     setExporting(false)
   }
@@ -106,13 +120,13 @@ function ExportModal({ open, onClose, activeTab, groupName, exportRefs }) {
   const anySelected = Object.values(selected).some(Boolean)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-         onClick={e => e.target === e.currentTarget && onClose()}>
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={event => event.target === event.currentTarget && onClose()}>
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm"/>
-      <div className="relative w-full max-w-lg card-glass rounded-t-2xl sm:rounded-2xl animate-slide-up border border-[var(--accent)]/20 flex flex-col"
+      <div
+        className="relative w-full max-w-lg card-glass rounded-t-2xl sm:rounded-2xl animate-slide-up border border-[var(--accent)]/20 flex flex-col"
         style={{ maxHeight: 'min(88vh, 100dvh - 2rem)' }}>
-
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-m-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <Camera size={15} className="text-[var(--accent)]" style={{ filter: 'drop-shadow(0 0 6px #00e5ff)' }}/>
@@ -123,36 +137,34 @@ function ExportModal({ open, onClose, activeTab, groupName, exportRefs }) {
           </button>
         </div>
 
-        {/* Body — scrollable */}
         <div className="p-5 space-y-4 overflow-y-auto overscroll-contain flex-1 pb-8">
           <p className="text-xs font-body text-m-sub">
             Pilih konten yang ingin diekspor sebagai gambar PNG bersih:
           </p>
 
-          {/* Checklist options */}
           <div className="space-y-2">
-            {OPTIONS.map(opt => (
-              <button key={opt.key} onClick={() => toggle(opt.key)}
+            {options.map(option => (
+              <button
+                key={option.key}
+                onClick={() => toggle(option.key)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
-                  selected[opt.key]
+                  selected[option.key]
                     ? 'border-[var(--accent)]/40 bg-[var(--accent-soft)]'
                     : 'border-m-border bg-white/60 hover:border-m-bordhi'
                 }`}>
-                {/* Checkbox */}
                 <div className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all border ${
-                  selected[opt.key]
+                  selected[option.key]
                     ? 'bg-[var(--accent)] border-[var(--accent)]'
                     : 'border-m-border bg-white/60'
                 }`}>
-                  {selected[opt.key] && <Check size={12} className="text-white" strokeWidth={3}/>}
+                  {selected[option.key] && <Check size={12} className="text-white" strokeWidth={3}/>}
                 </div>
-                <span className="text-base">{opt.icon}</span>
-                <span className="text-sm font-body text-m-text">{opt.label}</span>
+                <span className="text-[11px] font-display text-m-muted w-6">{option.icon}</span>
+                <span className="text-sm font-body text-m-text">{option.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Info box */}
           <div className="px-3 py-2.5 rounded-xl bg-white/60 border border-m-border">
             <p className="text-[11px] font-body text-m-muted leading-relaxed">
               Setiap konten yang dipilih akan diunduh sebagai file <span className="text-[var(--accent)]">.png</span> terpisah.
@@ -160,7 +172,6 @@ function ExportModal({ open, onClose, activeTab, groupName, exportRefs }) {
             </p>
           </div>
 
-          {/* Export button */}
           <button
             onClick={handleExport}
             disabled={!anySelected || exporting}
@@ -185,11 +196,11 @@ function ExportModal({ open, onClose, activeTab, groupName, exportRefs }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// Export wrapper — wraps a section with ref + clean padding
 function ExportSection({ exportRef, children, title, subtitle }) {
   return (
-    <div ref={exportRef} data-export-root
+    <div
+      ref={exportRef}
+      data-export-root
       style={{
         background: '#ffffff',
         border: '1px solid rgba(0,0,0,0.08)',
@@ -199,12 +210,28 @@ function ExportSection({ exportRef, children, title, subtitle }) {
         fontFamily: 'Inter, system-ui, sans-serif',
       }}>
       {title && (
-        <div style={{ marginBottom: '14px', paddingBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.07)',
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+        <div
+          style={{
+            marginBottom: '14px',
+            paddingBottom: '12px',
+            borderBottom: '1px solid rgba(0,0,0,0.07)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}>
           <div>
-            <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '10px', fontWeight: 700,
-              color: '#0077a8', letterSpacing: '0.15em', textTransform: 'uppercase',
-              display: 'block', marginBottom: '4px' }}>
+            <span
+              style={{
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontSize: '10px',
+                fontWeight: 700,
+                color: '#0077a8',
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                display: 'block',
+                marginBottom: '4px',
+              }}>
               MENTOR
             </span>
             <p style={{ fontSize: '13px', fontWeight: 600, color: '#0f1117', margin: 0, lineHeight: 1.3 }}>{title}</p>
@@ -220,106 +247,119 @@ function ExportSection({ exportRef, children, title, subtitle }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// TAB: Absensi per Grup
 function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
   const [filterInstrument, setFilterInstrument] = useState('all')
-  const [filterJabatan,    setFilterJabatan]    = useState('all')
-  const [filterAngkatan,   setFilterAngkatan]   = useState('all')
-  const [filterPeriod,     setFilterPeriod]     = useState('all')
-  const [chartData,        setChartData]        = useState([])
-  const [rankData,         setRankData]         = useState([])
-  const [loading,          setLoading]          = useState(true)
-  const [rankMetric,       setRankMetric]       = useState('hadir')
+  const [filterJabatan, setFilterJabatan] = useState('all')
+  const [filterAngkatan, setFilterAngkatan] = useState('all')
+  const [filterPeriod, setFilterPeriod] = useState('all')
+  const [chartData, setChartData] = useState([])
+  const [rankData, setRankData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [rankMetric, setRankMetric] = useState('hadir')
 
-  const filteredMembers = useMemo(() => members.filter(m => {
-    if (m.status !== 'active') return false
-    if (filterInstrument !== 'all' && m.instrument !== filterInstrument) return false
-    if (filterJabatan    !== 'all' && m.jabatan    !== filterJabatan)    return false
-    if (filterAngkatan   !== 'all' && m.angkatan   !== filterAngkatan)   return false
+  const filteredMembers = useMemo(() => members.filter(member => {
+    if (member.status !== 'active') return false
+    if (filterInstrument !== 'all' && member.instrument !== filterInstrument) return false
+    if (filterJabatan !== 'all' && member.jabatan !== filterJabatan) return false
+    if (filterAngkatan !== 'all' && member.angkatan !== filterAngkatan) return false
     return true
   }), [members, filterInstrument, filterJabatan, filterAngkatan])
 
-  const memberIds = useMemo(() => new Set(filteredMembers.map(m => m.member_id)), [filteredMembers])
+  const memberIds = useMemo(() => new Set(filteredMembers.map(member => member.member_id)), [filteredMembers])
 
   const filteredSessions = useMemo(() => {
-    const sorted = [...sessions].sort((a,b) => a.session_date.localeCompare(b.session_date))
-    if (filterPeriod === 'last5')  return sorted.slice(-5)
+    const sorted = [...sessions].sort((left, right) => left.session_date.localeCompare(right.session_date))
+    if (filterPeriod === 'last5') return sorted.slice(-5)
     if (filterPeriod === 'last10') return sorted.slice(-10)
     return sorted
   }, [sessions, filterPeriod])
 
   useEffect(() => {
-    if (!group_id || filteredSessions.length === 0) { setLoading(false); return }
+    if (!group_id || filteredSessions.length === 0) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     async function compute() {
-      const allAtt = await Promise.all(
-        filteredSessions.map(s => attendanceDB.getBySession(s.session_id, group_id))
+      const allAttendance = await Promise.all(
+        filteredSessions.map(session => attendanceDB.getBySession(session.session_id, group_id))
       )
-      const trend = filteredSessions.map((s, i) => {
-        const atts = allAtt[i].filter(a => memberIds.has(a.member_id))
+
+      const trend = filteredSessions.map((session, index) => {
+        const attendance = allAttendance[index].filter(item => memberIds.has(item.member_id))
         const counts = { hadir: 0, izin: 0, sakit: 0, alpha: 0 }
-        atts.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++ })
-        const total = atts.length || 1
+        attendance.forEach(item => {
+          if (counts[item.status] !== undefined) counts[item.status]++
+        })
+        const total = attendance.length || 1
         return {
-          label:    s.title.length > 12 ? s.title.slice(0, 10) + '…' : s.title,
-          date:     s.session_date,
-          Hadir:    counts.hadir,
-          Izin:     counts.izin,
-          Sakit:    counts.sakit,
-          Alpha:    counts.alpha,
+          label: session.title.length > 12 ? `${session.title.slice(0, 10)}...` : session.title,
+          date: session.session_date,
+          Hadir: counts.hadir,
+          Izin: counts.izin,
+          Sakit: counts.sakit,
+          Alpha: counts.alpha,
           pctHadir: Math.round((counts.hadir / total) * 100),
         }
       })
       setChartData(trend)
 
       const memberStats = {}
-      filteredMembers.forEach(m => {
-        memberStats[m.member_id] = { name: m.name.split(' ')[0], hadir: 0, izin: 0, sakit: 0, alpha: 0, total: 0 }
+      filteredMembers.forEach(member => {
+        memberStats[member.member_id] = {
+          name: member.name.split(' ')[0],
+          hadir: 0,
+          izin: 0,
+          sakit: 0,
+          alpha: 0,
+          total: 0,
+        }
       })
-      allAtt.forEach(atts => {
-        atts.forEach(a => {
-          if (!memberStats[a.member_id]) return
-          memberStats[a.member_id][a.status]++
-          memberStats[a.member_id].total++
+
+      allAttendance.forEach(attendance => {
+        attendance.forEach(item => {
+          if (!memberStats[item.member_id]) return
+          memberStats[item.member_id][item.status]++
+          memberStats[item.member_id].total++
         })
       })
-      const rankArr = Object.values(memberStats).map(m => ({
-        name:  m.name,
-        hadir: m.total > 0 ? Math.round((m.hadir / m.total) * 100) : 0,
-        izin:  m.total > 0 ? Math.round((m.izin  / m.total) * 100) : 0,
-        sakit: m.total > 0 ? Math.round((m.sakit / m.total) * 100) : 0,
-        alpha: m.total > 0 ? Math.round((m.alpha / m.total) * 100) : 0,
+
+      const ranking = Object.values(memberStats).map(member => ({
+        name: member.name,
+        hadir: member.total > 0 ? Math.round((member.hadir / member.total) * 100) : 0,
+        izin: member.total > 0 ? Math.round((member.izin / member.total) * 100) : 0,
+        sakit: member.total > 0 ? Math.round((member.sakit / member.total) * 100) : 0,
+        alpha: member.total > 0 ? Math.round((member.alpha / member.total) * 100) : 0,
         value: 0,
       }))
-      setRankData(rankArr)
+
+      setRankData(ranking)
       setLoading(false)
     }
+
     compute()
   }, [group_id, filteredSessions, memberIds, filteredMembers])
 
   const sortedRank = useMemo(() => (
-    [...rankData].map(m => ({ ...m, value: m[rankMetric] })).sort((a,b) => b.value - a.value)
+    [...rankData].map(member => ({ ...member, value: member[rankMetric] })).sort((left, right) => right.value - left.value)
   ), [rankData, rankMetric])
 
   const rankColors = { hadir: '#00e5ff', izin: '#ffe600', sakit: '#b56aff', alpha: '#ff4d6d' }
   const rankLabels = { hadir: '% Hadir', izin: '% Izin', sakit: '% Sakit', alpha: '% Alpha' }
-  const instrumentOpts = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.instrument).filter(Boolean))]
-  const jabatanOpts    = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.jabatan).filter(Boolean))]
-  const angkatanOpts   = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.angkatan).filter(Boolean)).keys()].filter(Boolean)
-
+  const instrumentOpts = ['all', ...new Set(members.filter(member => member.status === 'active').map(member => member.instrument).filter(Boolean))]
+  const jabatanOpts = ['all', ...new Set(members.filter(member => member.status === 'active').map(member => member.jabatan).filter(Boolean))]
+  const angkatanOpts = ['all', ...new Set(members.filter(member => member.status === 'active').map(member => member.angkatan).filter(Boolean)).keys()].filter(Boolean)
   const filterLabel = [
     filterInstrument !== 'all' && filterInstrument,
-    filterJabatan    !== 'all' && filterJabatan,
-    filterAngkatan   !== 'all' && `Angkatan ${filterAngkatan}`,
-    filterPeriod === 'last5' && '5 Sesi' ,
+    filterJabatan !== 'all' && filterJabatan,
+    filterAngkatan !== 'all' && `Angkatan ${filterAngkatan}`,
+    filterPeriod === 'last5' && '5 Sesi',
     filterPeriod === 'last10' && '10 Sesi',
   ].filter(Boolean).join(' · ')
 
   return (
     <div className="space-y-5 animate-fade-in">
-
-      {/* Filter bar — hidden in export */}
       <div className="card-glass rounded-2xl p-3 space-y-2" data-export-hide>
         <div className="flex items-center gap-2 mb-1">
           <Filter size={12} className="text-[var(--accent)]"/>
@@ -328,29 +368,37 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Instrumen</p>
-            <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)}
+            <select
+              value={filterInstrument}
+              onChange={event => setFilterInstrument(event.target.value)}
               className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
-              {instrumentOpts.map(o => <option key={o} value={o}>{o === 'all' ? 'Semua' : o}</option>)}
+              {instrumentOpts.map(option => <option key={option} value={option}>{option === 'all' ? 'Semua' : option}</option>)}
             </select>
           </div>
           <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Jabatan</p>
-            <select value={filterJabatan} onChange={e => setFilterJabatan(e.target.value)}
+            <select
+              value={filterJabatan}
+              onChange={event => setFilterJabatan(event.target.value)}
               className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
-              {jabatanOpts.map(o => <option key={o} value={o}>{o === 'all' ? 'Semua' : o}</option>)}
+              {jabatanOpts.map(option => <option key={option} value={option}>{option === 'all' ? 'Semua' : option}</option>)}
             </select>
           </div>
           <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Angkatan</p>
-            <select value={filterAngkatan} onChange={e => setFilterAngkatan(e.target.value)}
+            <select
+              value={filterAngkatan}
+              onChange={event => setFilterAngkatan(event.target.value)}
               className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
               <option value="all">Semua</option>
-              {angkatanOpts.map(o => <option key={o} value={o}>Angkatan {o}</option>)}
+              {angkatanOpts.map(option => <option key={option} value={option}>Angkatan {option}</option>)}
             </select>
           </div>
           <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Periode</p>
-            <select value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)}
+            <select
+              value={filterPeriod}
+              onChange={event => setFilterPeriod(event.target.value)}
               className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
               <option value="all">Semua</option>
               <option value="last5">5 Sesi Terakhir</option>
@@ -369,10 +417,9 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
       </div>
 
       {loading ? (
-        <div className="space-y-3">{[1,2].map(i => <SkeletonCard key={i}/>)}</div>
+        <div className="space-y-3">{[1, 2].map(index => <SkeletonCard key={index}/>)}</div>
       ) : (
         <>
-          {/* Tren Absensi — exportable */}
           <div>
             <SectionTitle>Tren Absensi per Sesi</SectionTitle>
             <ExportSection
@@ -383,7 +430,6 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
             </ExportSection>
           </div>
 
-          {/* Rate chart — exportable */}
           {chartData.length > 1 && (
             <div>
               <SectionTitle>Persentase Kehadiran</SectionTitle>
@@ -396,18 +442,19 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
             </div>
           )}
 
-          {/* Ranking — exportable */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <SectionTitle>Ranking Anggota</SectionTitle>
               <div className="flex gap-1" data-export-hide>
-                {Object.entries(rankLabels).map(([k, label]) => (
-                  <button key={k} onClick={() => setRankMetric(k)}
+                {Object.entries(rankLabels).map(([key]) => (
+                  <button
+                    key={key}
+                    onClick={() => setRankMetric(key)}
                     className={`px-2 py-0.5 rounded-full text-[10px] font-body border transition-all ${
-                      rankMetric === k ? 'border-transparent text-white font-semibold' : 'border-m-border text-m-muted hover:border-m-bordhi'
+                      rankMetric === key ? 'border-transparent text-white font-semibold' : 'border-m-border text-m-muted hover:border-m-bordhi'
                     }`}
-                    style={rankMetric === k ? { background: rankColors[k] } : {}}>
-                    {k.charAt(0).toUpperCase() + k.slice(1)}
+                    style={rankMetric === key ? { background: rankColors[key] } : {}}>
+                    {key.charAt(0).toUpperCase() + key.slice(1)}
                   </button>
                 ))}
               </div>
@@ -416,12 +463,6 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
               exportRef={exportRefs.ranking}
               title={`Ranking ${rankLabels[rankMetric]}`}
               subtitle={filterLabel || 'Semua anggota aktif'}>
-              <p style={{ fontSize: '11px', color: '#8888aa', marginBottom: '12px', fontFamily: 'DM Sans' }}>
-                {rankMetric === 'hadir' ? '🏆 Anggota paling rajin hadir' :
-                 rankMetric === 'alpha' ? '⚠️ Anggota paling sering alpha' :
-                 rankMetric === 'izin'  ? '📋 Anggota paling sering izin' :
-                 '🤒 Anggota paling sering sakit'}
-              </p>
               <MemberRankingChart data={sortedRank} color={rankColors[rankMetric]} valueLabel={rankLabels[rankMetric]}/>
             </ExportSection>
           </div>
@@ -431,70 +472,147 @@ function AttendanceCharts({ group_id, members, sessions, exportRefs }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// TAB: Penilaian
-function StatModal({ member, sessions, group_id, onClose }) {
-  const { initScores, saveStat } = useStats(member.member_id, group_id)
-  const [sessionId, setSessionId] = useState(sessions[0]?.session_id || '')
-  const [scores,    setScores]    = useState(null)
-  const [note,      setNote]      = useState('')
-  const [saving,    setSaving]    = useState(false)
-  const session = sessions.find(s => s.session_id === sessionId)
+function clampScore(value) {
+  return Math.max(0, Math.min(100, value))
+}
 
-  useEffect(() => {
-    if (!sessionId) return
-    initScores(sessionId).then(s => { setScores({ ...s }); setNote('') })
-  }, [sessionId, initScores])
+function getQuickEditSession(sessions) {
+  if (!sessions.length) return null
+  const sorted = [...sessions].sort((left, right) => right.session_date.localeCompare(left.session_date))
+  return sorted.find(session => session.status === 'open') || sorted[0]
+}
 
-  async function handleSave() {
-    if (!session || !scores) return
-    setSaving(true)
-    await saveStat(session.session_id, session.session_date, scores, note)
-    setSaving(false)
-    onClose()
-  }
-
+function QuickSkillEditor({ sessions, sessionId, onSessionChange, scores, note, onNoteChange, onAdjust, onCancel, onSave, saving }) {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-m-sub font-body">Sesi</label>
-        <select value={sessionId} onChange={e => setSessionId(e.target.value)}
-          className="w-full bg-white/60 border border-m-border rounded-lg px-3 py-2.5 text-sm text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
-          {sessions.map(s => <option key={s.session_id} value={s.session_id}>{s.title} — {formatDate(s.session_date)}</option>)}
+    <div className="mt-3 rounded-2xl border border-[var(--accent-glow)] bg-[var(--accent-soft)]/60 p-3 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-display font-semibold tracking-[0.16em] uppercase text-[var(--accent)]">Quick Edit</p>
+          <p className="text-xs font-body text-m-muted">Tambah poin langsung tanpa pindah modal.</p>
+        </div>
+        <select
+          value={sessionId}
+          onChange={event => onSessionChange(event.target.value)}
+          className="min-w-[160px] bg-white border border-m-border rounded-xl px-3 py-2 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
+          {sessions.map(session => (
+            <option key={session.session_id} value={session.session_id}>
+              {session.title} - {formatDate(session.session_date)}
+            </option>
+          ))}
         </select>
       </div>
-      {scores && (
-        <div className="space-y-4 py-1">
-          {SKILL_VARS.map(v => (
-            <Slider key={v.key} label={v.label} color={v.color}
-              value={scores[v.key]} onChange={val => setScores(s => ({ ...s, [v.key]: val }))}/>
-          ))}
-        </div>
-      )}
-      <Textarea label="Catatan evaluasi" placeholder="Komentar singkat trainer..." value={note} onChange={e => setNote(e.target.value)}/>
-      <div className="flex gap-2 justify-end">
-        <Btn variant="outline" onClick={onClose}>Batal</Btn>
-        <Btn onClick={handleSave} disabled={saving || !scores}>{saving ? 'Menyimpan...' : 'Simpan Penilaian'}</Btn>
+
+      <div className="space-y-2">
+        {SKILL_VARS.map(skill => (
+          <div key={skill.key} className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2.5 border border-white">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-body font-semibold text-m-text truncate">{skill.label}</p>
+              <p className="text-[10px] font-body text-m-muted">Atur cepat per langkah 5 poin</p>
+            </div>
+            <button
+              onClick={() => onAdjust(skill.key, -5)}
+              className="w-9 h-9 rounded-xl border border-m-border bg-white text-m-sub hover:border-m-bordhi hover:text-m-text transition-colors flex items-center justify-center">
+              <Minus size={14}/>
+            </button>
+            <div className="w-12 text-center">
+              <div className="text-lg font-display font-bold" style={{ color: skill.color }}>
+                {scores?.[skill.key] ?? 0}
+              </div>
+            </div>
+            <button
+              onClick={() => onAdjust(skill.key, 5)}
+              className="w-9 h-9 rounded-xl border border-[var(--accent-glow)] bg-white text-[var(--accent)] hover:border-[var(--accent)] transition-colors flex items-center justify-center">
+              <Plus size={14}/>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <Textarea
+        label="Catatan evaluasi"
+        placeholder="Komentar singkat trainer..."
+        value={note}
+        onChange={event => onNoteChange(event.target.value)}
+      />
+
+      <div className="flex justify-end gap-2">
+        <Btn variant="outline" onClick={onCancel}>Batal</Btn>
+        <Btn onClick={onSave} disabled={saving || !scores}>
+          {saving ? 'Menyimpan...' : <><Save size={13}/>Simpan Cepat</>}
+        </Btn>
       </div>
     </div>
   )
 }
 
-function MemberStatCard({ member, group_id, exportRef }) {
-  const { history, latest, loading } = useStats(member.member_id, group_id)
+function MemberStatCard({ member, group_id, exportRef, sessions }) {
+  const { history, latest, loading, initScores, saveStat } = useStats(member.member_id, group_id)
   const prev = history.length >= 2 ? history[history.length - 2] : null
   const [expanded, setExpanded] = useState(false)
-  const avg = latest ? Math.round(Object.values(latest.scores).reduce((a,b) => a+b, 0) / 5) : null
+  const [editing, setEditing] = useState(false)
+  const [sessionId, setSessionId] = useState('')
+  const [draftScores, setDraftScores] = useState(null)
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const avg = latest ? Math.round(Object.values(latest.scores).reduce((total, score) => total + score, 0) / 5) : null
+  const canEdit = sessions.length > 0
+
+  useEffect(() => {
+    if (!editing || !canEdit) return
+    const defaultSession = getQuickEditSession(sessions)
+    if (!defaultSession) return
+    setSessionId(current => current || defaultSession.session_id)
+  }, [editing, canEdit, sessions])
+
+  useEffect(() => {
+    if (!editing || !sessionId) return
+    let active = true
+
+    initScores(sessionId).then(scores => {
+      if (!active) return
+      setDraftScores({ ...scores })
+      setNote('')
+    })
+
+    return () => {
+      active = false
+    }
+  }, [editing, sessionId, initScores])
+
+  function handleAdjust(skillKey, delta) {
+    setDraftScores(current => ({
+      ...(current || {}),
+      [skillKey]: clampScore((current?.[skillKey] ?? 0) + delta),
+    }))
+  }
+
+  async function handleQuickSave() {
+    const session = sessions.find(item => item.session_id === sessionId)
+    if (!session || !draftScores) return
+    setSaving(true)
+    await saveStat(session.session_id, session.session_date, draftScores, note)
+    setSaving(false)
+    setEditing(false)
+  }
+
+  function handleCancelEdit() {
+    setEditing(false)
+    setDraftScores(null)
+    setNote('')
+  }
 
   return (
     <Card className="overflow-hidden">
-      <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/60/50 transition-colors" onClick={() => setExpanded(e => !e)}>
+      <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/60/50 transition-colors" onClick={() => setExpanded(current => !current)}>
         <div className="w-9 h-9 rounded-full bg-white/60 border border-m-border flex items-center justify-center text-sm font-display text-[var(--accent)] flex-shrink-0">
           {member.name[0]}
         </div>
         <div className="flex-1 text-left min-w-0">
           <p className="text-sm font-body font-medium text-m-text truncate">{member.name}</p>
-          <p className="text-xs font-body text-m-muted">{member.instrument}{member.jabatan && member.jabatan !== 'Anggota' && ` · ${member.jabatan}`}</p>
+          <p className="text-xs font-body text-m-muted">
+            {member.instrument}
+            {member.jabatan && member.jabatan !== 'Anggota' && ` · ${member.jabatan}`}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           {avg !== null && (
@@ -511,25 +629,54 @@ function MemberStatCard({ member, group_id, exportRef }) {
         <div className="border-t border-m-border px-4 pb-4 pt-3 space-y-3 animate-fade-in">
           {loading ? <Spinner/> : (
             <>
-              {/* Wrap radar+scores in exportable section */}
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-display font-semibold tracking-[0.16em] uppercase text-[var(--accent)]">Chart Penilaian</p>
+                  <p className="text-xs font-body text-m-muted">Buka editor cepat untuk update skor anggota ini.</p>
+                </div>
+                <button
+                  onClick={() => setEditing(current => !current)}
+                  disabled={!canEdit}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-m-border bg-white/80 text-xs font-body font-medium text-m-sub hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                  <PencilLine size={13}/>
+                  Edit chart
+                </button>
+              </div>
+
               <ExportSection
                 exportRef={exportRef}
-                title={`Penilaian — ${member.name}`}
-                subtitle={`${member.instrument}${member.jabatan && member.jabatan !== 'Anggota' ? ' · ' + member.jabatan : ''}`}>
+                title={`Penilaian - ${member.name}`}
+                subtitle={`${member.instrument}${member.jabatan && member.jabatan !== 'Anggota' ? ` · ${member.jabatan}` : ''}`}>
                 <MemberRadar latest={latest} previous={prev}/>
                 {latest && <ScoreCards scores={latest.scores} prevScores={prev?.scores}/>}
               </ExportSection>
+
+              {editing && canEdit && (
+                <QuickSkillEditor
+                  sessions={sessions}
+                  sessionId={sessionId}
+                  onSessionChange={setSessionId}
+                  scores={draftScores}
+                  note={note}
+                  onNoteChange={setNote}
+                  onAdjust={handleAdjust}
+                  onCancel={handleCancelEdit}
+                  onSave={handleQuickSave}
+                  saving={saving}
+                />
+              )}
+
               {history.length > 0 && (
                 <div className="mt-3">
                   <p className="text-xs font-body text-m-muted mb-2 uppercase tracking-wider">Riwayat</p>
                   <div className="space-y-1.5">
-                    {[...history].reverse().slice(0, 5).map(h => (
-                      <div key={h.stat_id} className="flex items-center justify-between py-1.5 border-b border-m-border last:border-0">
-                        <span className="text-xs font-body text-m-muted">{formatDate(h.session_date)}</span>
+                    {[...history].reverse().slice(0, 5).map(item => (
+                      <div key={item.stat_id} className="flex items-center justify-between py-1.5 border-b border-m-border last:border-0">
+                        <span className="text-xs font-body text-m-muted">{formatDate(item.session_date)}</span>
                         <div className="flex gap-1">
-                          {SKILL_VARS.map(v => (
-                            <span key={v.key} className="text-[10px] font-body px-1.5 py-0.5 rounded bg-white/60" style={{ color: v.color }}>
-                              {h.scores[v.key]}
+                          {SKILL_VARS.map(skill => (
+                            <span key={skill.key} className="text-[10px] font-body px-1.5 py-0.5 rounded bg-white/60" style={{ color: skill.color }}>
+                              {item.scores[skill.key]}
                             </span>
                           ))}
                         </div>
@@ -546,46 +693,54 @@ function MemberStatCard({ member, group_id, exportRef }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// TAB: Ranking Skill
 function StatsRanking({ members, group_id, exportRefs }) {
-  const [filterSkill,      setFilterSkill]      = useState('loyalitas')
+  const [filterSkill, setFilterSkill] = useState('loyalitas')
   const [filterInstrument, setFilterInstrument] = useState('all')
-  const [filterJabatan,    setFilterJabatan]    = useState('all')
-  const [filterAngkatan,   setFilterAngkatan]   = useState('all')
-  const [rankData,         setRankData]         = useState([])
-  const [loading,          setLoading]          = useState(true)
+  const [filterJabatan, setFilterJabatan] = useState('all')
+  const [filterAngkatan, setFilterAngkatan] = useState('all')
+  const [rankData, setRankData] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredMembers = useMemo(() => members.filter(m => {
-    if (m.status !== 'active') return false
-    if (filterInstrument !== 'all' && m.instrument !== filterInstrument) return false
-    if (filterJabatan    !== 'all' && m.jabatan    !== filterJabatan)    return false
-    if (filterAngkatan   !== 'all' && m.angkatan   !== filterAngkatan)   return false
+  const filteredMembers = useMemo(() => members.filter(member => {
+    if (member.status !== 'active') return false
+    if (filterInstrument !== 'all' && member.instrument !== filterInstrument) return false
+    if (filterJabatan !== 'all' && member.jabatan !== filterJabatan) return false
+    if (filterAngkatan !== 'all' && member.angkatan !== filterAngkatan) return false
     return true
   }), [members, filterInstrument, filterJabatan, filterAngkatan])
 
   useEffect(() => {
-    if (!group_id || filteredMembers.length === 0) { setRankData([]); setLoading(false); return }
+    if (!group_id || filteredMembers.length === 0) {
+      setRankData([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
+
     async function compute() {
       const results = await Promise.all(
-        filteredMembers.map(async m => {
-          const latest = await statsDB.getLatest(m.member_id, group_id)
-          return { name: m.name.split(' ')[0], value: latest?.scores?.[filterSkill] ?? 0 }
+        filteredMembers.map(async member => {
+          const latest = await statsDB.getLatest(member.member_id, group_id)
+          return { name: member.name.split(' ')[0], value: latest?.scores?.[filterSkill] ?? 0 }
         })
       )
-      setRankData(results.sort((a,b) => b.value - a.value))
+      setRankData(results.sort((left, right) => right.value - left.value))
       setLoading(false)
     }
+
     compute()
   }, [group_id, filteredMembers, filterSkill])
 
-  const skillVar   = SKILL_VARS.find(v => v.key === filterSkill)
+  const skillVar = SKILL_VARS.find(skill => skill.key === filterSkill)
   const skillColor = skillVar?.color ?? '#00e5ff'
-  const instrumentOpts = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.instrument).filter(Boolean))]
-  const jabatanOpts    = ['all', ...new Set(members.filter(m=>m.status==='active').map(m=>m.jabatan).filter(Boolean))]
-  const angkatanOpts   = [...new Set(members.filter(m=>m.status==='active').map(m=>m.angkatan).filter(Boolean))]
-  const filterLabel = [filterInstrument !== 'all' && filterInstrument, filterJabatan !== 'all' && filterJabatan, filterAngkatan !== 'all' && `Angkatan ${filterAngkatan}`].filter(Boolean).join(' · ')
+  const instrumentOpts = ['all', ...new Set(members.filter(member => member.status === 'active').map(member => member.instrument).filter(Boolean))]
+  const jabatanOpts = ['all', ...new Set(members.filter(member => member.status === 'active').map(member => member.jabatan).filter(Boolean))]
+  const angkatanOpts = [...new Set(members.filter(member => member.status === 'active').map(member => member.angkatan).filter(Boolean))]
+  const filterLabel = [
+    filterInstrument !== 'all' && filterInstrument,
+    filterJabatan !== 'all' && filterJabatan,
+    filterAngkatan !== 'all' && `Angkatan ${filterAngkatan}`,
+  ].filter(Boolean).join(' · ')
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -597,11 +752,13 @@ function StatsRanking({ members, group_id, exportRefs }) {
         <div>
           <p className="text-[9px] font-body text-m-muted mb-1.5 uppercase">Skill</p>
           <div className="flex gap-1.5 flex-wrap">
-            {SKILL_VARS.map(v => (
-              <button key={v.key} onClick={() => setFilterSkill(v.key)}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-body border transition-all ${filterSkill === v.key ? 'border-transparent text-white font-semibold' : 'border-m-border text-m-muted'}`}
-                style={filterSkill === v.key ? { background: v.color } : {}}>
-                {v.label}
+            {SKILL_VARS.map(skill => (
+              <button
+                key={skill.key}
+                onClick={() => setFilterSkill(skill.key)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-body border transition-all ${filterSkill === skill.key ? 'border-transparent text-white font-semibold' : 'border-m-border text-m-muted'}`}
+                style={filterSkill === skill.key ? { background: skill.color } : {}}>
+                {skill.label}
               </button>
             ))}
           </div>
@@ -609,24 +766,30 @@ function StatsRanking({ members, group_id, exportRefs }) {
         <div className="grid grid-cols-3 gap-2">
           <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Instrumen</p>
-            <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)}
+            <select
+              value={filterInstrument}
+              onChange={event => setFilterInstrument(event.target.value)}
               className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
-              {instrumentOpts.map(o => <option key={o} value={o}>{o === 'all' ? 'Semua' : o}</option>)}
+              {instrumentOpts.map(option => <option key={option} value={option}>{option === 'all' ? 'Semua' : option}</option>)}
             </select>
           </div>
           <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Jabatan</p>
-            <select value={filterJabatan} onChange={e => setFilterJabatan(e.target.value)}
+            <select
+              value={filterJabatan}
+              onChange={event => setFilterJabatan(event.target.value)}
               className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
-              {jabatanOpts.map(o => <option key={o} value={o}>{o === 'all' ? 'Semua' : o}</option>)}
+              {jabatanOpts.map(option => <option key={option} value={option}>{option === 'all' ? 'Semua' : option}</option>)}
             </select>
           </div>
           <div>
             <p className="text-[9px] font-body text-m-muted mb-1 uppercase">Angkatan</p>
-            <select value={filterAngkatan} onChange={e => setFilterAngkatan(e.target.value)}
+            <select
+              value={filterAngkatan}
+              onChange={event => setFilterAngkatan(event.target.value)}
               className="w-full bg-white/60 border border-m-border rounded-lg px-2 py-1.5 text-xs text-m-text font-body focus:outline-none focus:border-[var(--accent)] transition-colors">
               <option value="all">Semua</option>
-              {angkatanOpts.map(o => <option key={o} value={o}>Angkatan {o}</option>)}
+              {angkatanOpts.map(option => <option key={option} value={option}>Angkatan {option}</option>)}
             </select>
           </div>
         </div>
@@ -642,90 +805,72 @@ function StatsRanking({ members, group_id, exportRefs }) {
           title={`Ranking ${skillVar?.label}`}
           subtitle={filterLabel || 'Semua anggota aktif'}>
           {loading ? <Spinner/> : rankData.length === 0
-            ? <EmptyState icon="📊" title="Belum ada data penilaian"/>
-            : <MemberRankingChart data={rankData} color={skillColor} valueLabel={skillVar?.label}/>
-          }
+            ? <EmptyState icon="PS" title="Belum ada data penilaian"/>
+            : <MemberRankingChart data={rankData} color={skillColor} valueLabel={skillVar?.label}/>}
         </ExportSection>
       </div>
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// Main Stats Page
 export default function Stats() {
   const { activeGroup } = useGroup()
   const gid = activeGroup?.group_id
-  const { members, loading: mLoading } = useMembers(gid)
+  const { members, loading: membersLoading } = useMembers(gid)
   const { sessions } = useSessions(gid)
 
-  const [tab,         setTab]         = useState('absensi')
-  const [evalModal,   setEvalModal]   = useState(null)
+  const [tab, setTab] = useState('absensi')
   const [exportModal, setExportModal] = useState(false)
 
-  // Export refs — one per exportable section
   const exportRefs = {
-    // absensi tab
-    trend:     useRef(null),
-    rate:      useRef(null),
-    ranking:   useRef(null),
-    // ranking tab
+    trend: useRef(null),
+    rate: useRef(null),
+    ranking: useRef(null),
     skillrank: useRef(null),
+    members: useRef(null),
   }
 
-  // Per-member refs for penilaian tab
   const memberExportRefs = useRef({})
-  const getMemberRef = useCallback((memberId) => {
+  const getMemberRef = useCallback(memberId => {
     if (!memberExportRefs.current[memberId]) {
       memberExportRefs.current[memberId] = { current: null }
     }
     return memberExportRefs.current[memberId]
   }, [])
 
-  // For penilaian tab, build export refs from expanded members
   const penilaianExportRefs = useMemo(() => {
-    const refs = {}
-    members.filter(m => m.status === 'active').forEach(m => {
-      refs[m.member_id] = getMemberRef(m.member_id)
-    })
-    return refs
-  }, [members, getMemberRef])
+    return { members: exportRefs.members }
+  }, [exportRefs.members])
 
-  const activeMembers = members.filter(m => m.status === 'active')
-  if (!activeGroup) return <EmptyState icon="📊" title="Pilih grup dulu"/>
+  const activeMembers = members.filter(member => member.status === 'active')
+  if (!activeGroup) return <EmptyState icon="PS" title="Pilih grup dulu"/>
 
-  const TABS = [
-    { key: 'absensi',   label: 'Absensi',   icon: BarChart2  },
-    { key: 'penilaian', label: 'Penilaian', icon: Users      },
-    { key: 'ranking',   label: 'Ranking',   icon: TrendingUp },
+  const tabs = [
+    { key: 'absensi', label: 'Absensi', icon: BarChart2 },
+    { key: 'penilaian', label: 'Penilaian', icon: Users },
+    { key: 'ranking', label: 'Ranking', icon: TrendingUp },
   ]
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-2xl mx-auto animate-fade-in">
-
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <SectionTitle>Statistik</SectionTitle>
         <div className="flex items-center gap-2">
-          {/* Export PNG button */}
-          <button onClick={() => setExportModal(true)}
+          <button
+            onClick={() => setExportModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-body card-glass border border-[var(--accent)]/20 text-[var(--accent)] hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)] transition-all"
             style={{ filter: 'drop-shadow(0 0 4px rgba(0,229,255,0.2))' }}>
             <Camera size={13}/>
             Export PNG
           </button>
-          {tab === 'penilaian' && (
-            <Btn size="sm" onClick={() => setEvalModal(true)} disabled={!sessions.length}>
-              + Nilai
-            </Btn>
-          )}
         </div>
       </div>
 
-      {/* Tab switcher */}
       <div className="flex gap-1 mb-5 p-1 bg-white/60 rounded-xl border border-m-border">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button key={key} onClick={() => setTab(key)}
+        {tabs.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-body transition-all duration-200 ${
               tab === key ? 'bg-[var(--accent)] text-white font-semibold' : 'text-m-muted hover:text-m-text'
             }`}>
@@ -734,28 +879,30 @@ export default function Stats() {
         ))}
       </div>
 
-      {/* Tab content */}
       {tab === 'absensi' && (
         sessions.length === 0
-          ? <EmptyState icon="📋" title="Belum ada sesi" subtitle="Buat sesi latihan terlebih dahulu"/>
+          ? <EmptyState icon="PL" title="Belum ada sesi" subtitle="Buat sesi latihan terlebih dahulu"/>
           : <AttendanceCharts group_id={gid} members={members} sessions={sessions} exportRefs={exportRefs}/>
       )}
 
       {tab === 'penilaian' && (
-        mLoading
-          ? <div className="space-y-2">{[1,2,3].map(i => <SkeletonCard key={i}/>)}</div>
+        membersLoading
+          ? <div className="space-y-2">{[1, 2, 3].map(index => <SkeletonCard key={index}/>)}</div>
           : activeMembers.length === 0
-            ? <EmptyState icon="🎵" title="Belum ada anggota aktif"/>
+            ? <EmptyState icon="MU" title="Belum ada anggota aktif"/>
             : (
               <div className="space-y-2">
-                {activeMembers.map(m => (
+                <div ref={exportRefs.members} className="space-y-2">
+                {activeMembers.map(member => (
                   <MemberStatCard
-                    key={m.member_id}
-                    member={m}
+                    key={member.member_id}
+                    member={member}
                     group_id={gid}
-                    exportRef={getMemberRef(m.member_id)}
+                    exportRef={getMemberRef(member.member_id)}
+                    sessions={sessions}
                   />
                 ))}
+                </div>
               </div>
             )
       )}
@@ -764,40 +911,13 @@ export default function Stats() {
         <StatsRanking members={members} group_id={gid} exportRefs={exportRefs}/>
       )}
 
-      {/* Export PNG Modal */}
       <ExportModal
         open={exportModal}
         onClose={() => setExportModal(false)}
         activeTab={tab}
         groupName={activeGroup?.group_name ?? 'Grup'}
-        exportRefs={tab === 'penilaian'
-          ? penilaianExportRefs
-          : exportRefs
-        }
+        exportRefs={tab === 'penilaian' ? penilaianExportRefs : exportRefs}
       />
-
-      {/* Eval Modal */}
-      <Modal open={!!evalModal} onClose={() => setEvalModal(null)} title="Input Penilaian">
-        {evalModal === true ? (
-          <div className="space-y-2">
-            <p className="text-xs font-body text-m-muted mb-3">Pilih anggota:</p>
-            {activeMembers.map(m => (
-              <button key={m.member_id} onClick={() => setEvalModal(m)}
-                className="w-full flex items-center gap-3 px-4 py-3 bg-white/60 rounded-xl hover:bg-slate-200 transition-colors text-left">
-                <div className="w-8 h-8 rounded-full bg-white border border-m-border flex items-center justify-center text-sm font-display text-[var(--accent)]">
-                  {m.name[0]}
-                </div>
-                <div>
-                  <p className="text-sm font-body text-m-text">{m.name}</p>
-                  <p className="text-xs font-body text-m-muted">{m.instrument}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : evalModal && (
-          <StatModal member={evalModal} sessions={sessions} group_id={gid} onClose={() => setEvalModal(null)}/>
-        )}
-      </Modal>
     </div>
   )
 }
